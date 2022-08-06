@@ -1,6 +1,6 @@
-# ENWAS
+# Environment‐Wide Association Study (EnWAS)
 
-ENWAS is .................................
+EnWAS is .................................
 
 ## Installation
 
@@ -8,7 +8,7 @@ You can install the development version of BioImpute from [GitHub](https://githu
 
 ``` {r}
 # install.packages("devtools")
-devtools::install_github("ccb-hms/ENWAS")
+devtools::install_github("ccb-hms/EnWAS")
 ```
 
 ## Example
@@ -16,6 +16,9 @@ devtools::install_github("ccb-hms/ENWAS")
 This is a basic example which shows you how to solve a common problem:
 
 ```{r}
-library(ENWAS)
-enwas(i, ph.list, data, model_var, gen_cat,..)
+library(EnWAS)
+data(exposure_vars)
+data(nhanes)
+linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
+linear_res <- enwas(linear_model, exposure_vars, data)
 ```
