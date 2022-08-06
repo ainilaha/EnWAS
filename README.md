@@ -20,5 +20,5 @@ library(EnWAS)
 data(exposure_vars)
 data(nhanes)
 linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
-linear_res <- enwas(linear_model, exposure_vars, data)
+linear_res <- enwas(linear_model, exposure_vars, nhanes)
 ```
