@@ -2,50 +2,26 @@
 % Please edit documentation in R/enwas.R
 \name{enwas}
 \alias{enwas}
-\title{ENWAS main function}
+\title{Environment‐Wide Association Study (EnWAS)}
 \usage{
-enwas(
-  i,
-  ph.list,
-  data,
-  model_var,
-  gen_cat,
-  outcome,
-  sex_spec_cat,
-  ss.out,
-  ss.out.cat,
-  n_cutoff
-)
+enwas(base_model, exposure_vars, data_set, inv_norm = FALSE)
 }
 \arguments{
-\item{i}{index}
+\item{base_model}{a string of base model}
 
-\item{ph.list}{list of variables to run through as independent variables}
+\item{exposure_vars}{the phenotype list}
 
-\item{data}{dataframe with ID, outcome,age (age centered at 50),exposures,
-poststratification variable}
+\item{data_set}{data set}
 
-\item{model_var}{character vector, list of variable to include in model}
-
-\item{gen_cat}{name of post stratification variable}
-
-\item{outcome}{name of outcome variable}
-
-\item{sex_spec_cat}{if sex specific, name of post-stratification variable}
-
-\item{ss.out}{"Yes" or "No", is outcome sex-specifi}
-
-\item{ss.out.cat}{"M/F", "M", "F"}
-
-\item{n_cutoff}{minimum sample size required to run model.}
+\item{inv_norm}{}
 }
 \value{
-enwas models
+the model list and EnWAS result
 }
 \description{
-Environment Wide Associate
+Environment‐Wide Association Study (EnWAS)
 }
 \examples{
-> enwas(i, ph.list, data, model_var, gen_cat, outcome, sex_spec_cat,
-> ss.out, ss.out.cat, n_cutoff)
+linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
+linear_res <- enwas(linear_model, exposure_vars, data)
 }
