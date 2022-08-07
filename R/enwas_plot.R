@@ -1,5 +1,15 @@
+
+#' Forest Plot for single model
+#'
+#' @param xwas_result the EnWAS result data frame
+#'
+#' @return plot result
+#' @export
+#'
+#' @examples forest_plot(linear_res$enwas_res)
 forest_plot <- function(xwas_result) {
-    ggplot(xwas_result,aes(
+  xwas_result |>
+    ggplot(aes(
       x = term,
       y = estimate,
       colour = estimate
@@ -16,12 +26,24 @@ forest_plot <- function(xwas_result) {
 
 
 
+
+
+#' Title
+#'
+#' @param xwas_result_list list of the EnWAS result data frames
+#'
+#' @return plot multiple model results in a single image
+#' @export
+#'
+#' @examples forest_plot_mult(list(linear = linear_res$enwas_res,
+#'                                ns = ns_res$enwas_res))
 forest_plot_mult <- function(xwas_result_list) {
   xwas_result <- do.call("rbind", xwas_result_list)
   xwas_result$EnWAS <-
     rep(names(xwas_result_list), each = nrow(xwas_result_list[[1]]))
 
-    ggplot(xwas_result, aes(
+  xwas_result |>
+    ggplot(aes(
       x = term,
       y = estimate,
       colour = EnWAS

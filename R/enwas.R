@@ -44,7 +44,7 @@ enwas <-
 
       mod <- lm(model, data_set)
       model_list[[i]] <- mod
-      mod_df <- tidy(mod)
+      mod_df <- broom::tidy(mod)
       association_list <-
         rbind(association_list, mod_df) # step 3b of algorithm
     }
@@ -69,8 +69,8 @@ enwas <-
 
 
 
-    xwas_list <- xwas_list |>
-      mutate(lower = estimate - 1.96 * std.error)  |>
+    xwas_list <- xwas_list %>%
+      mutate(lower = estimate - 1.96 * std.error)  %>%
       mutate(upper = estimate + 1.96 * std.error)
 
     return (list(model_list = model_list, enwas_res = xwas_list))

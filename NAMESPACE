@@ -2,3 +2,5 @@
 
 export(build_formula)
 export(enwas)
+export(forest_plot)
+export(forest_plot_mult)
