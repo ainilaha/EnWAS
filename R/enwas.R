@@ -17,6 +17,7 @@ enwas <-
            exposure_vars,
            data_set,
            inv_norm = FALSE) {
+
     num_var <- length(exposure_vars)
 
     model_list <- vector(mode = "list", length = num_var)
