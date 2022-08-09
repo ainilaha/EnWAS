@@ -72,7 +72,14 @@ phesant <- function(df) {
   data_types[order_cols] <- 'ordered'
   data_types[unorder_cols] <- 'unordered'
 
-  data_types
+
+  data[, names(data_types[data_types %in% c("ordered", "unordered", "binary")])] <-
+    lapply(data[, names(data_types[data_types %in% c("ordered", "unordered", "binary")])], as.factor)
+
+  data[, names(data_types[data_types == "continuous"])] <-
+    lapply(data[, names(data_types[data_types == "continuous"])], as.numeric)
+
+  return(list(data = data, phs_types = data_types))
 
 }
 
