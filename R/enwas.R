@@ -51,9 +51,11 @@ enwas <-
     }
 
 
-    xwas_list <-
-      association_list[association_list$term %in% c(exposure_vars, factor_terms), ]
+    # xwas_list <-
+    #   association_list[association_list$term %in% c(exposure_vars, factor_terms), ]
 
+    xwas_list <-
+      association_list[association_list$term %in% exposure_vars, ]
 
     # sd_x_list <-  sapply(data_set[,num_cols],sd)
     sd_x_list <-  sapply(data_set, function(x)
