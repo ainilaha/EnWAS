@@ -101,4 +101,17 @@ build_formula <- function(base_model,exposure_var,inv=FALSE) {
   )
 }
 
+#' Inverse Normal Transformation
+#'
+#' @param x
+#'
+#' @return transformed data
+#' @export
+#'
+#' @examples invNorm(nhanes$BMXWAIST)
+invNorm <- function(x) {
+  qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))
+  }
+
+
 

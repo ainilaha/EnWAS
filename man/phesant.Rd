@@ -7,7 +7,7 @@
 phesant(df)
 }
 \arguments{
-\item{df}{data frame to process}
+\item{df}{data frame to be processed}
 }
 \value{
 suggested data types
