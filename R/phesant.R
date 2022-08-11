@@ -22,7 +22,7 @@ phesant <- function(df) {
 
   distinct_cnt <- n_unique(df,num_cols)
   same_ratio <-
-    round(1 - distinct_cnt / cnt_data, 4)
+    round(1 - distinct_cnt/cnt_data, 4)
 
   continous_cols <- names(same_ratio[same_ratio < 0.35])
 
@@ -73,13 +73,13 @@ phesant <- function(df) {
   data_types[unorder_cols] <- 'unordered'
 
 
-  data[, names(data_types[data_types %in% c("ordered", "unordered", "binary")])] <-
-    lapply(data[, names(data_types[data_types %in% c("ordered", "unordered", "binary")])], as.factor)
+  df[, names(data_types[data_types %in% c("ordered", "unordered", "binary")])] <-
+    lapply(df[, names(data_types[data_types %in% c("ordered", "unordered", "binary")])], as.factor)
 
-  data[, names(data_types[data_types == "continuous"])] <-
-    lapply(data[, names(data_types[data_types == "continuous"])], as.numeric)
+  df[, names(data_types[data_types == "continuous"])] <-
+    lapply(df[, names(data_types[data_types == "continuous"])], as.numeric)
 
-  return(list(data = data, phs_types = data_types))
+  return(list(data = df, phs_types = data_types))
 
 }
 
@@ -97,7 +97,7 @@ n_unique <- function (df,cols){
     return (n)
   }else{
     n <- sapply(df[,cols], function(x)
-      unique(x))
+      length(unique(x)))
     return (n)
   }
 
