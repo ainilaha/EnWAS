@@ -68,11 +68,8 @@ enwas <-
     xwas_list$fdr <-
       p.adjust(xwas_list$p.value, method = 'BY')
 
-
-
-    xwas_list <- xwas_list %>%
-      mutate(lower = estimate - 1.96 * std.error)  %>%
-      mutate(upper = estimate + 1.96 * std.error)
+    xwas_list$lower <- xwas_list$estimate - 1.96 * xwas_list$std.error
+    xwas_list$upper <- xwas_list$estimate + 1.96 * xwas_list$std.error
 
     return (list(model_list = model_list, enwas_res = xwas_list))
 
