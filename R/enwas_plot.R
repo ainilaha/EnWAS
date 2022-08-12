@@ -20,8 +20,7 @@ forest_plot <- function(xwas_result) {
     geom_point(size = 2) +
     geom_errorbar(aes(ymin = lower, ymax = upper),
                   width = 0.5,
-                  cex = 1)
-  ) +
+                  cex = 1)+
   geom_hline(yintercept = 0, linetype = 'dashed') +
   geom_rect(
     aes(
@@ -73,7 +72,7 @@ forest_plot_mult <- function(xwas_result_list) {
       position = position_dodge(width = 1),
       width = 0.5,
       cex = 1
-    ) +
+    )+
     geom_hline(yintercept = 0, linetype = 'dashed') +
     geom_rect(
       data = tem_df,
