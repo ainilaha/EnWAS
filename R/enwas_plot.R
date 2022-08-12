@@ -16,11 +16,12 @@ forest_plot <- function(xwas_result) {
     ggplot(aes(x = term,
                y = estimate,
                colour = estimate)) +
-    geom_point(size = 2) +
+    geom_point(size = 2,position = position_dodge(width = 1)) +
     geom_errorbar(
       aes(ymin = lower, ymax = upper),
       width = 0.5,
-      cex = 1
+      cex = 1,
+      position = position_dodge(width = 1)
     ) +
     geom_hline(yintercept = 0, linetype = 'dashed') +
     geom_rect(
