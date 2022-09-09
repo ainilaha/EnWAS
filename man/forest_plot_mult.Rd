@@ -2,7 +2,7 @@
 % Please edit documentation in R/enwas_plot.R
 \name{forest_plot_mult}
 \alias{forest_plot_mult}
-\title{Title}
+\title{Plot Forest for Muliple Models}
 \usage{
 forest_plot_mult(xwas_result_list)
 }
@@ -13,7 +13,7 @@ forest_plot_mult(xwas_result_list)
 plot multiple model results in a single image
 }
 \description{
-Title
+Plot Forest for Muliple Models
 }
 \examples{
 forest_plot_mult(list(linear = linear_res$enwas_res,

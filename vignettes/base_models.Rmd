@@ -1,0 +1,61 @@
+---
+title: "Check Base Models"
+date: "Updated on : `r date()`"
+output: html_document
+# output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{base_models}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(EnWAS)
+library(splines)
+library(ggplot2)
+```
+
+## Load data
+```{r load_data}
+data("nhanes")
+data("exposure_vars")
+```
+
+## Base Model
+The following regression models have not include EnWAS, it just check model work properly before run the EnWAS
+
+The knots and boundary knots set are important.
+
+```{r base_model}
+lm_str <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_base <- lm(as.formula(lm_str), nhanes)
+
+ns_str <-
+  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)
+) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)), Boundary.knots=c(10,85))'
+ns_base <- lm(as.formula(ns_str), nhanes)
+```
+
+## Residual Plots
+
+
+```{r residual,results = "asis"}
+par(mfrow = c(1, 2))
+smoothScatter(nhanes$RIDAGEYR,lm_base$residuals)
+smoothScatter(nhanes$RIDAGEYR,ns_base$residuals)
+```
+
+
+```{r residual1,results = "asis"}
+df_age_res <- list("Linear"=make_bins(x=nhanes$RIDAGEYR,y=lm_base$residual,nbin=600),
+                "Spline"=make_bins(x=nhanes$RIDAGEYR,y=ns_base$residuals,nbin=600)
+                )
+plot_bins2(df_age_res,xlab="Age(year)", ylab="Binned Residuals",is_facet=FALSE)
+```
