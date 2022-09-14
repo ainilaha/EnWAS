@@ -14,7 +14,7 @@
 forest_plot <- function(xwas_result) {
   xwas_result$col <- as.numeric(rownames(xwas_result)) %% 2
   n <- nrow(xwas_result)
-  xwas_result |> mutate(xmin = seq(0.5, n - 0.5, by = 1),
+  xwas_result |> dplyr::mutate(xmin = seq(0.5, n - 0.5, by = 1),
                         xmax = seq(1.5, n + 0.5, by = 1)) |>
     ggplot(aes(x = term,
                y = estimate,
@@ -63,7 +63,7 @@ forest_plot_mult <- function(xwas_result_list) {
   tem_df <- xwas_result_list[[1]]
   n <- nrow(tem_df)
   tem_df$col <- as.numeric(rownames(tem_df)) %% 2
-  tem_df <- tem_df |> mutate(xmin = seq(0.5, n - 0.5, by = 1),
+  tem_df <- tem_df |> dplyr::mutate(xmin = seq(0.5, n - 0.5, by = 1),
                              xmax = seq(1.5, n + 0.5, by = 1))
   xwas_result |>  ggplot(aes(x = term,
                              y = estimate,
@@ -171,3 +171,24 @@ plot_bins2 <-
     g
 
   }
+
+
+#' Print ANOVA LRT test results
+#'
+#' @param anov_obj result of ANOVA LRT test result
+#'
+#' @return print the results in a readable format
+#' @export
+#'
+#' @examples print_anova(anova(lm_base,ns_base,test="LRT"))
+print_anova <- function(anov_obj){
+  for (a in attr(anov_obj,"heading")){
+    cat(gsub(pattern = "\n", replacement = "  \n", x = a))
+  }
+  anov_df <- as.data.frame(anov_obj)
+  anov_df <- round(anov_df,3)
+  anov_df[!is.na(anov_df[,'Pr(>Chi)']) & anov_df[,'Pr(>Chi)'] <= 0.001, 'Pr(>Chi)'] <- "< 0.001"
+  anov_df[is.na(anov_df)] <- ""
+
+  knitr::kable(anov_df)
+}

@@ -1,0 +1,109 @@
+---
+title: "Quick Start"
+date: "Updated on : `r date()`"
+output: html_document
+# output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{quick_start}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(EnWAS)
+library(splines)
+library(ggplot2)
+```
+
+## Load data
+```{r load_data}
+data("nhanes")
+data("exposure_vars")
+```
+
+## Base Model
+We need to check the base model and ensure it runs correctly before performing EnWAS.
+The knots and boundary knots set are essential. The model may not perform as good as expected or raise errors if the knots are not set correctly.
+
+```{r base_model}
+lm_str <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_base <- lm(as.formula(lm_str), nhanes)
+
+ns_str <-
+  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)
+) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)), Boundary.knots=c(10,85))'
+ns_base <- lm(as.formula(ns_str), nhanes)
+```
+
+## Residual Plots
+
+We can check the residual trends against variables. For example, we can plot the residuals of the models against age. We can see the residuals of the linear model have a parabola-like trend, and the residuals of the natural spline model do not have a clear pattern. 
+```{r residual,results = "asis"}
+par(mfrow = c(1, 2))
+smoothScatter(nhanes$RIDAGEYR,lm_base$residuals)
+smoothScatter(nhanes$RIDAGEYR,ns_base$residuals)
+```
+Further, we can binned the residual plot and compare the trends.The values on x-axis (age in this example) are binned, and each bin contains about 600 data points; further the mean of residuals are plotted with error bar ([$-1.96 \sqrt{\sigma_r},1.96\sqrt{\sigma_r}]$), where $\sqrt{\sigma_r}$ is the standard deviation of residuals in the bins. The binned residual can stretch the data point out so that it shows clear patterns of the residuals in each bin.
+
+```{r residual1,results = "asis"}
+df_age_res <- list("Linear"=make_bins(x=nhanes$RIDAGEYR,y=lm_base$residual,nbin=600),
+                "Spline"=make_bins(x=nhanes$RIDAGEYR,y=ns_base$residuals,nbin=600)
+                )
+plot_bins2(df_age_res,xlab="Age(year)", ylab="Binned Residuals",is_facet=FALSE)
+```
+
+## AIC/BIC
+We can also check the models, with AIC and BIC to select the models.
+
+```{r aic,results = "asis"}
+library(knitr)
+kable(broom::glance(lm_base)[c("df", "logLik", "AIC", "BIC")])
+kable(broom::glance(ns_base)[c("df", "logLik", "AIC", "BIC")])
+```
+
+
+## ANOVA LRT (Likelihood Ratio Test)
+
+```{r anova,results = "asis"}
+print_anova(anova(lm_base,ns_base,test="LRT"))
+```
+
+
+## Run EnWAS 
+
+
+```{r enwas, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+
+lm_enwas <- enwas(lm_str, exposure_vars, nhanes)
+ns_enwas <- enwas(ns_str, exposure_vars, nhanes)
+forest_plot_mult(
+  list(
+    linear = lm_enwas$enwas_res,
+    ns = ns_enwas$enwas_res
+  )
+)
+
+```
+
+In addition, the EnWAS model can use inverse normal transformation on the wide association variables, which would be helpful to improve the models' performance when the distributions are skewed.
+
+$$
+\operatorname{INT}\left(W_{i}\right)=\Phi^{-1}\left\{\frac{\operatorname{rank}\left(W_{i}\right)-c}{n+1-2 c}\right\}, c \in[0,1 / 2]
+$$ where c=3/8 is recommended.
+```{r enwas2, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+ns_inv_enwas <- enwas(ns_str, exposure_vars, nhanes)
+forest_plot_mult(
+  list(
+    inv_ns = ns_inv_enwas$enwas_res,
+    ns = ns_enwas$enwas_res
+  )
+)
+
+```
