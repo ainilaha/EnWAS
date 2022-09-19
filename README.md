@@ -2,6 +2,8 @@
 
 EnWAS is .................................
 
+***Note: We need to move the html files in other git repository to reduce the size of package***
+
 ## Installation
 
 You can install the development version of BioImpute from [GitHub](https://github.com/) with:

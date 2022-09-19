@@ -78,6 +78,7 @@ print_anova(anova(lm_base,ns_base,test="LRT"))
 
 ## Run EnWAS 
 
+### Forest Plot
 
 ```{r enwas, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 
@@ -91,6 +92,16 @@ forest_plot_mult(
 )
 
 ```
+
+
+### P-Value or FDR
+
+```{r p_vales, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+plot_p(list(linear = lm_enwas$enwas_res,  ns = ns_enwas$enwas_res))
+```
+
+
+### Inverse Normal Transformation
 
 In addition, the EnWAS model can use inverse normal transformation on the wide association variables, which would be helpful to improve the models' performance when the distributions are skewed.
 

@@ -53,8 +53,8 @@ forest_plot <- function(xwas_result) {
 #' @return plot multiple model results in a single image
 #' @export
 #'
-#' @examples forest_plot_mult(list(linear = linear_res$enwas_res,
-#'                                ns = ns_res$enwas_res))
+#' @examples forest_plot_mult(list(linear = lm_enwas$enwas_res,
+#'                                ns = en_enwas$enwas_res))
 forest_plot_mult <- function(xwas_result_list) {
   xwas_result <- do.call("rbind", xwas_result_list)
   xwas_result$EnWAS <-
@@ -127,6 +127,36 @@ make_bins <- function(x, y, nbin) {
 
 }
 
+
+#' Plot binned value for single data frame
+#'
+#' The y values are binned with respected to x values
+#'
+#' @param x x values
+#' @param y y values
+#' @param xlab x label text
+#' @param ylab y label text
+#' @param title plot title
+#' @param nbin expected data points in each bin
+#'
+#' @return plot results
+#' @export
+#'
+#' @examples plot_bins(nhanes$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)", y="Binned residuals", snbin=300)
+plot_bins<- function(x,y,xlab="Value",ylab="Binned y",title="linear",nbin=600){
+
+  df <- make_bins(x,y,nbin)
+  g <- ggplot(df,aes(breaks,mean)) + geom_point() +
+    geom_errorbar(aes(ymin=y_min,ymax=y_max))+
+    geom_smooth(aes(breaks,mean),method = "lm", formula = y ~  ns(x, df=7))+
+    ylab(ylab) + xlab(xlab) + labs(title = title)
+
+  g
+
+}
+
+
+
 #' Plot multiple Bins
 #'
 #' @param df_list a list contains data frames
@@ -191,4 +221,37 @@ print_anova <- function(anov_obj){
   anov_df[is.na(anov_df)] <- ""
 
   knitr::kable(anov_df)
+}
+
+
+#' Plot P values
+#'
+#' @param xwas_result_list list of data frames of EnWAS
+#' @param is_fdr a flag value decides to plot p-values or FDR
+#'
+#' @return plot results
+#' @export
+#'
+#' @examples plot_p(list(linear = lm_enwas$enwas_res,
+#'                                ns = ns_enwas$enwas_res))
+plot_p <- function(xwas_result_list,is_fdr=FALSE){
+
+  xwas_result <- do.call("rbind", xwas_result_list)
+  xwas_result$EnWAS <-
+    rep(names(xwas_result_list), each = nrow(xwas_result_list[[1]]))
+
+  p <- if (is_fdr) "fdr" else "p.value"
+  g_p.value <- xwas_result|> ggplot(aes_string("term", p ,color="EnWAS")) +
+    geom_segment(aes_string(x="term", xend="term", y=0, yend="p.value")) +
+    geom_point(size=4)+geom_hline(yintercept = 0.05,linetype="dashed")+
+    theme_light() +
+    coord_flip() +
+    theme(
+      panel.grid.major.y = element_blank(),
+      panel.border = element_blank(),
+      axis.ticks.y = element_blank()
+    )
+
+  g_p.value
+
 }

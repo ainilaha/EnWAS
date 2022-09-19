@@ -16,6 +16,6 @@ plot multiple model results in a single image
 Plot Forest for Muliple Models
 }
 \examples{
-forest_plot_mult(list(linear = linear_res$enwas_res,
-                               ns = ns_res$enwas_res))
+forest_plot_mult(list(linear = lm_enwas$enwas_res,
+                               ns = en_enwas$enwas_res))
 }
