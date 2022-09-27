@@ -84,6 +84,9 @@ print_anova(anova(lm_base,ns_base,test="LRT"))
 
 lm_enwas <- enwas(lm_str, exposure_vars, nhanes)
 ns_enwas <- enwas(ns_str, exposure_vars, nhanes)
+
+forest_plot(lm_enwas$enwas_res)
+
 forest_plot_mult(
   list(
     linear = lm_enwas$enwas_res,

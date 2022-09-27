@@ -4,16 +4,18 @@
 \alias{forest_plot}
 \title{Forest Plot for single model}
 \usage{
-forest_plot(xwas_result)
+forest_plot(xwas_result, top_n = 20)
 }
 \arguments{
 \item{xwas_result}{the EnWAS result data frame}
+
+\item{top_n}{the top to n phenotype}
 }
 \value{
 plot result
 }
 \description{
-Forest Plot for single model
+The top n records are selected by the absolute values of the estimators.
 }
 \examples{
 forest_plot(linear_res$enwas_res)

@@ -2,18 +2,20 @@
 % Please edit documentation in R/enwas_plot.R
 \name{forest_plot_mult}
 \alias{forest_plot_mult}
-\title{Plot Forest for Muliple Models}
+\title{Plot Forest for Multiple Models}
 \usage{
-forest_plot_mult(xwas_result_list)
+forest_plot_mult(xwas_result_list, top_n = 20)
 }
 \arguments{
 \item{xwas_result_list}{list of the EnWAS result data frames}
+
+\item{top_n}{select top n record by the differences of the estimates}
 }
 \value{
 plot multiple model results in a single image
 }
 \description{
-Plot Forest for Muliple Models
+Plot Forest for Multiple Models
 }
 \examples{
 forest_plot_mult(list(linear = lm_enwas$enwas_res,

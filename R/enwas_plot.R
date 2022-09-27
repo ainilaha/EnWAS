@@ -4,19 +4,28 @@
 
 #' Forest Plot for single model
 #'
+#' The top n records are selected by the absolute values of the estimators.
+#'
 #' @param xwas_result the EnWAS result data frame
+#' @param top_n the top to n phenotype
 #'
 #' @return plot result
 #' @export
 #'
 #' @examples forest_plot(linear_res$enwas_res)
 
-forest_plot <- function(xwas_result) {
-  xwas_result$col <- as.numeric(rownames(xwas_result)) %% 2
+forest_plot <- function(xwas_result,top_n=20) {
+
+
+  xwas_result <- xwas_result |> dplyr::top_n(top_n,abs(estimate))
+
   n <- nrow(xwas_result)
-  xwas_result |> dplyr::mutate(xmin = seq(0.5, n - 0.5, by = 1),
-                        xmax = seq(1.5, n + 0.5, by = 1)) |>
-    ggplot(aes(x = term,
+  xwas_result <- xwas_result |> dplyr::arrange(dplyr::desc(estimate)) |>
+    dplyr::mutate(xmin = seq(0.5, n - 0.5, by = 1),
+                  xmax = seq(1.5, n + 0.5, by = 1))
+  xwas_result$col <- as.numeric(rownames(xwas_result)) %% 2
+
+  xwas_result |> ggplot(aes(x = reorder(term,estimate),
                y = estimate,
                colour = estimate)) +
     geom_point(size = 2) +
@@ -46,26 +55,40 @@ forest_plot <- function(xwas_result) {
 
 
 
-#' Plot Forest for Muliple Models
+#' Plot Forest for Multiple Models
 #'
 #' @param xwas_result_list list of the EnWAS result data frames
+#' @param top_n select top n record by the differences of the estimates
 #'
 #' @return plot multiple model results in a single image
 #' @export
 #'
 #' @examples forest_plot_mult(list(linear = lm_enwas$enwas_res,
 #'                                ns = en_enwas$enwas_res))
-forest_plot_mult <- function(xwas_result_list) {
+forest_plot_mult <- function(xwas_result_list,top_n=20) {
+
   xwas_result <- do.call("rbind", xwas_result_list)
   xwas_result$EnWAS <-
     rep(names(xwas_result_list), each = nrow(xwas_result_list[[1]]))
 
   tem_df <- xwas_result_list[[1]]
-  n <- nrow(tem_df)
+  terms <- tem_df$term
+  len <- length(terms)
+  difference <- rep(0,len)
+  names(difference) <- terms
+  for (i in 1:len){
+    difference[i] <- diff(range(xwas_result[xwas_result$term==terms[i],]$estimate))
+  }
+  top_diff <- names(sort(difference,decreasing=TRUE)[1:top_n])
+
+  tem_df <- tem_df[tem_df$term %in% top_diff,]
+
+  n <- top_n
   tem_df$col <- as.numeric(rownames(tem_df)) %% 2
   tem_df <- tem_df |> dplyr::mutate(xmin = seq(0.5, n - 0.5, by = 1),
                              xmax = seq(1.5, n + 0.5, by = 1))
-  xwas_result |>  ggplot(aes(x = term,
+  xwas_result[xwas_result$term %in% top_diff,] |>
+    ggplot(aes(x = reorder(term,estimate),
                              y = estimate,
                              colour = EnWAS))  +
     geom_point(size = 2, position = position_dodge(width = 1)) +
