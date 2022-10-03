@@ -3,11 +3,15 @@ title: "Quick Start"
 date: "Updated on : `r date()`"
 output: html_document
 # output: rmarkdown::html_vignette
-vignette: >
-  %\VignetteIndexEntry{quick_start}
-  %\VignetteEngine{knitr::rmarkdown}
-  %\VignetteEncoding{UTF-8}
+# vignette: >
+#   %\VignetteIndexEntry{quick_start}
+#   %\VignetteEngine{knitr::rmarkdown}
+#   %\VignetteEncoding{UTF-8}
 ---
+
+
+
+
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
@@ -20,46 +24,96 @@ knitr::opts_chunk$set(
 library(EnWAS)
 library(splines)
 library(ggplot2)
+library(ggpubr)
+library(dplyr)
 ```
 
-## Load data
+## 1. Load data
+
 ```{r load_data}
 data("nhanes")
 data("exposure_vars")
 ```
 
-## Base Model
-We need to check the base model and ensure it runs correctly before performing EnWAS.
-The knots and boundary knots set are essential. The model may not perform as good as expected or raise errors if the knots are not set correctly.
+## 2. Data Preprocess with PHESANT
+
+```{r pre}
+phesant_res <- phesant(nhanes)
+nhanes <- phesant_res$data
+```
+
+## 2. Indentify Confonders and Buil Base Model
+
+We need to check the base model and ensure it runs correctly before performing EnWAS. The knots and boundary knots set are essential. The model may not perform as good as expected or raise errors if the knots are not set correctly. - diastolic is the average of the diastolic first (BPXDI1) and second (BPXDI2) reads.
 
 ```{r base_model}
-lm_str <- 'BPXDI1 ~ RIDAGEYR*RIAGENDR + BMXBMI'
+lm_str <- 'diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
 lm_base <- lm(as.formula(lm_str), nhanes)
 
 ns_str <-
-  'BPXDI1 ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)
-) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,75,by=10)), Boundary.knots=c(10,85))'
+  'diastolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
 ns_base <- lm(as.formula(ns_str), nhanes)
 ```
 
-## Residual Plots
+## 3. Base Model AC/QC
 
-We can check the residual trends against variables. For example, we can plot the residuals of the models against age. We can see the residuals of the linear model have a parabola-like trend, and the residuals of the natural spline model do not have a clear pattern. 
+### 3.1 Residuals VS Fitted Values
+
+```{r residual_ft,results = "asis"}
+par(mfrow = c(1, 2))
+smoothScatter(lm_base$fitted.values,lm_base$residuals)
+lines(lowess(lm_base$fitted.values,lm_base$residuals),lwd=3,col="red")
+smoothScatter(ns_base$fitted.values,ns_base$residuals)
+lines(lowess(ns_base$fitted.values,ns_base$residuals),lwd=3,col="red")
+
+```
+
+We need check the base models before moving to EnWAS.
+
+We can check the residual trends against variables. For example, we can plot the residuals of the models against age. We can see the residuals of the linear model have a parabola-like trend, and the residuals of the natural spline model do not have a clear pattern.
+
 ```{r residual,results = "asis"}
 par(mfrow = c(1, 2))
+smoothScatter(nhanes$BMXBMI,lm_base$residuals)
+lines(lowess(nhanes$BMXBMI,lm_base$residuals),lwd=3,col="red")
+smoothScatter(nhanes$BMXBMI,ns_base$residuals)
+lines(lowess(nhanes$BMXBMI,ns_base$residuals),lwd=3,col="red")
+par(mfrow = c(1, 2))
 smoothScatter(nhanes$RIDAGEYR,lm_base$residuals)
+lines(lowess(nhanes$RIDAGEYR,lm_base$residuals),lwd=3,col="red")
 smoothScatter(nhanes$RIDAGEYR,ns_base$residuals)
+lines(lowess(nhanes$RIDAGEYR,ns_base$residuals),lwd=3,col="red")
+
 ```
+
 Further, we can binned the residual plot and compare the trends.The values on x-axis (age in this example) are binned, and each bin contains about 600 data points; further the mean of residuals are plotted with error bar ([$-1.96 \sqrt{\sigma_r},1.96\sqrt{\sigma_r}]$), where $\sqrt{\sigma_r}$ is the standard deviation of residuals in the bins. The binned residual can stretch the data point out so that it shows clear patterns of the residuals in each bin.
 
-```{r residual1,results = "asis"}
+```{r raw,results = "asis"}
+
+bmi_raw <- g_raw(nhanes)
+df_bmi_res <- list("Linear"=make_bins(x=nhanes$BMXBMI,lm_base$residuals,nbin=600),
+                "Spline"=make_bins(x=nhanes$BMXBMI,y=ns_base$residuals,nbin=600)
+                )
+bmi_res <- plot_bins2(df_bmi_res,xlab="BMI (kg/m²)",ylab="Binned Residuals",is_facet = FALSE)+ ylim(-8,6.5) + xlim(min(nhanes$BMXBMI),max(nhanes$BMXBMI))
+```
+
+```{r residual2,results = "asis"}
+
+
+age_raw <- g_raw(nhanes,x="RIDAGEYR",xlab="Age (Years)")
+
+
 df_age_res <- list("Linear"=make_bins(x=nhanes$RIDAGEYR,y=lm_base$residual,nbin=600),
                 "Spline"=make_bins(x=nhanes$RIDAGEYR,y=ns_base$residuals,nbin=600)
                 )
-plot_bins2(df_age_res,xlab="Age(year)", ylab="Binned Residuals",is_facet=FALSE)
+age_res <- plot_bins2(df_age_res,xlab="Age (year)",ylab="Binned Residuals",is_facet = FALSE) + ylim(-8,6.5)
+ggpubr::ggarrange(age_raw, age_res,nrow = 2,ncol = 1,
+                           common.legend = TRUE,legend='right')
+
 ```
 
 ## AIC/BIC
+
 We can also check the models, with AIC and BIC to select the models.
 
 ```{r aic,results = "asis"}
@@ -68,15 +122,13 @@ kable(broom::glance(lm_base)[c("df", "logLik", "AIC", "BIC")])
 kable(broom::glance(ns_base)[c("df", "logLik", "AIC", "BIC")])
 ```
 
-
 ## ANOVA LRT (Likelihood Ratio Test)
 
 ```{r anova,results = "asis"}
 print_anova(anova(lm_base,ns_base,test="LRT"))
 ```
 
-
-## Run EnWAS 
+## Run EnWAS
 
 ### Forest Plot
 
@@ -97,13 +149,11 @@ forest_plot_mult(
 
 ```
 
-
 ### P-Value or FDR
 
 ```{r p_vales, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 plot_p(list(linear = lm_enwas$enwas_res,  ns = ns_enwas$enwas_res))
 ```
-
 
 ### Inverse Normal Transformation
 
@@ -112,8 +162,9 @@ In addition, the EnWAS model can use inverse normal transformation on the wide a
 $$
 \operatorname{INT}\left(W_{i}\right)=\Phi^{-1}\left\{\frac{\operatorname{rank}\left(W_{i}\right)-c}{n+1-2 c}\right\}, c \in[0,1 / 2]
 $$ where c=3/8 is recommended.
+
 ```{r enwas2, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-ns_inv_enwas <- enwas(ns_str, exposure_vars, nhanes)
+ns_inv_enwas <- enwas(ns_str, exposure_vars, nhanes,inv_norm = TRUE)
 forest_plot_mult(
   list(
     inv_ns = ns_inv_enwas$enwas_res,
@@ -122,3 +173,115 @@ forest_plot_mult(
 )
 
 ```
+
+### Cross Validation for EnWAS
+
+```{r cv, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+
+cross_val <- function(model_str,inv=FALSE){
+  years <- levels(nhanes$years)
+  len_year <- length(years)
+  mse_mtx <- matrix(0, nrow = length(exposure_vars), ncol = len_year)
+  rownames(mse_mtx) <- exposure_vars
+  colnames(mse_mtx) <- years
+
+  for (i in 1:len_year){
+      cv_train <- nhanes[nhanes$years != years[i], ]
+      cv_test <- nhanes[nhanes$years == years[i], ]
+      mse <- enwas_cv(model_str,exposure_vars,train_set = cv_train,test_set = cv_test,inv_norm =inv)
+      mse_mtx[,i] <- mse
+  }
+ mse_df <- as.data.frame(reshape2::melt(mse_mtx))
+ colnames(mse_df) <- c("Exposures","Years","MSE") 
+ mse_df
+
+}
+  
+
+
+
+
+# select top N = 30
+N <- 30
+xwas_result <- ns_enwas$enwas_res |>
+  dplyr::top_n(N,abs(estimate)) |>
+  dplyr::arrange(dplyr::desc(estimate))
+
+top_vars <- xwas_result$term
+
+
+
+plot_cv <- function(mse_df,top_expos=exposure_vars){
+ mse_df <- mse_df[mse_df$Exposures %in% top_expos,]
+ mse_df |> ggplot(aes(x=as.numeric(Exposures),y=MSE,color=Years)) +
+  geom_point(size=2)+ geom_line()+
+  scale_x_continuous(breaks=seq(1,length(top_expos),1),labels=levels(mse_df$Exposures),
+                     guide = guide_axis(angle = 45))+ xlab("Exposures")+
+  theme_minimal()
+}     
+
+
+
+## spline
+mse_ns <- cross_val(ns_str) 
+plot_cv(mse_ns)
+
+
+## spline with INV
+mse_ns_inv <- cross_val(ns_str,inv = TRUE) 
+plot_cv(mse_ns_inv)
+
+
+## linear
+mse_lm <- cross_val(lm_str) 
+plot_cv(mse_lm)
+
+
+## linear with INV
+mse_lm_inv <- cross_val(lm_str,inv = TRUE) 
+plot_cv(mse_lm_inv)
+
+
+
+
+
+sum_mse <- function(mse_df){
+  mse_df <- mse_df |> dplyr::group_by(Years) |>
+  dplyr::summarise(Residuals= mean(MSE),std = sd(MSE)) |>
+  dplyr::mutate(upper = Residuals+2*std, lower=Residuals-2*std)
+  mse_df
+}
+
+
+len_year <- length(levels(nhanes$years))
+
+
+mse_list <- list(ns=sum_mse(mse_ns),
+                 lm=sum_mse(mse_lm),
+                 ns_inv=sum_mse(mse_ns_inv),
+                 lm_inv=sum_mse(mse_lm_inv))
+
+mse_result <- do.call("rbind", mse_list)
+mse_result$EnWAS <-
+  rep(names(mse_list), each = nrow(mse_list[[1]])) 
+
+mse_result|> ggplot(aes(as.numeric(Years),Residuals, colour=EnWAS)) + geom_point(size=2) +
+    geom_errorbar(aes(ymin=lower,ymax=upper)) + geom_line() +
+    scale_x_continuous(breaks=seq(1,len_year,1),labels=levels(mse_result$Years),
+                     guide = guide_axis(angle = 45))+ xlab("Years")+
+  theme_minimal()
+
+
+
+mse_result|> ggplot(aes(as.numeric(Years),Residuals, colour=EnWAS)) + geom_point(size=2) +
+    geom_errorbar(aes(ymin=lower,ymax=upper)) + 
+    geom_smooth(aes(as.numeric(Years),Residuals),method = "lm", formula = y ~  ns(x, df=7)) +
+    scale_x_continuous(breaks=seq(1,len_year,1),labels=levels(mse_result$Years),
+                     guide = guide_axis(angle = 45))+ xlab("Years")+
+   theme_minimal()
+
+
+
+
+```
+

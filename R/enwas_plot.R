@@ -203,7 +203,9 @@ plot_bins2 <-
     g <-
       ggplot(df, aes(breaks, mean, color = Model)) + geom_point() +
       geom_errorbar(aes(ymin = y_min, ymax = y_max)) +
-      geom_smooth(aes(breaks, mean), se = FALSE) +
+      geom_smooth(aes(breaks, mean), method = "loess",
+                  formula=y~x,
+                  se = FALSE) +
       scale_color_manual(
         values = c(
           "#E69F00",
@@ -277,4 +279,56 @@ plot_p <- function(xwas_result_list,is_fdr=FALSE){
 
   g_p.value
 
+}
+
+
+
+#' Plot the outcomes against terms
+#'
+#' @param data data
+#' @param x terms or phenotype
+#' @param y outcomes
+#' @param gender gender of the cohort for plot point color
+#' @param xlab x label text
+#' @param ylab y label text
+#' @param sample_ratio sample points to plot points, plot all the points is not helpful and time consuming when data set is large
+#'
+#' @return plot results
+#' @export
+#'
+#' @examples g_raw(nhanes)
+#' @examples g_raw(nhanes,x="RIDAGEYR",xlab="Age (Years)")
+g_raw <- function(data,
+                  x = "BMXBMI",
+                  y = "diastolic",
+                  gender = "RIAGENDR",
+                  xlab = "BMI (kg/m²)",
+                  ylab = "Diastolic (mm Hg)",
+                  sample_ratio = 0.3) {
+  g <- nhanes |> ggplot(aes_string(x = x,
+                                   y = y)) +
+    geom_point(
+      data = ~ dplyr::group_by(.x) |> dplyr::sample_frac(sample_ratio),
+      aes_string(fill = gender),
+      alpha = 0.2,
+      shape = 21
+    ) +
+    geom_smooth(
+      method = "lm",
+      formula = y ~ x,
+      aes(colour = "Linear"),
+      size = 1.5
+    ) +
+    geom_smooth(
+      method = "lm",
+      formula = y ~ splines::ns(x, df = 7),
+      aes(colour = "Spline"),
+      size = 1.5
+    ) +
+    xlab(xlab) + ylab(ylab) +
+    scale_colour_manual(values = c("#E69F00", "#56B4E9")) +
+    theme_minimal() +
+    labs(fill = "Gender", colour = "Model")
+
+  g
 }

@@ -58,11 +58,15 @@ enwas <-
       association_list[association_list$term %in% exposure_vars, ]
 
     # sd_x_list <-  sapply(data_set[,num_cols],sd)
-    sd_x_list <-  sapply(data_set, function(x)
-      sd(as.numeric(x)))
-    for (var in exposure_vars) {
-      xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] <-
-        xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] * sd_x_list[var]
+
+    if(inv_norm==FALSE){
+      sd_x_list <-  sapply(data_set, function(x)
+        sd(as.numeric(x)))
+      for (var in exposure_vars) {
+        xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] <-
+          xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] * sd_x_list[var]
+      }
+
     }
 
 
@@ -77,6 +81,57 @@ enwas <-
 
 
   }
+
+
+
+#' Environment‐Wide Association Study (EnWAS) with testing
+#'
+#' @param base_model a string of base model
+#' @param exposure_vars the phenotype list
+#' @param train_set taring set
+#' @param test_set test set
+#' @param lab_col label column
+#' @param inv_norm
+#'
+#' @return the model list and EnWAS result
+#' @export
+#'
+#' @examples linear_model <- 'BMXWAIST ~ RIDAGEYR*RIAGENDR + BMXBMI'
+#' linear_res <- enwas_cv(linear_model, exposure_vars, train_set,test_set)
+enwas_cv <-
+  function(base_model,
+           exposure_vars,
+           train_set,
+           test_set,
+           lab_col="diastolic",
+           inv_norm = FALSE) {
+
+    num_var <- length(exposure_vars)
+
+    model_list <- vector(mode = "list", length = num_var)
+    names(model_list) <- exposure_vars
+    num_cols <- sapply(train_set[, exposure_vars], is.numeric)
+    num_cols <- names(num_cols[num_cols == TRUE])
+    if (inv_norm) {
+      train_set[, num_cols] <- lapply(train_set[, num_cols], invNorm)
+      test_set[, num_cols] <- lapply(test_set[, num_cols], invNorm)
+    }
+
+    mse <- rep(NA,num_var)
+
+    for (i in 1:num_var) {
+      model_str <- build_formula(base_model, exposure_vars[i])
+      model <- lm(model_str, train_set)
+      pred_vals <- predict(model, test_set)
+      mse[i] <- mean((pred_vals - test_set[,lab_col]) ^ 2)
+    }
+
+    mse
+
+  }
+
+
+
 
 #' Build formula for EnWAS
 #'
