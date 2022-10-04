@@ -198,16 +198,20 @@ cross_val <- function(model_str,inv=FALSE){
 }
   
 
-
-
-
-# select top N = 30
-N <- 30
+N <- 20
 xwas_result <- ns_enwas$enwas_res |>
   dplyr::top_n(N,abs(estimate)) |>
   dplyr::arrange(dplyr::desc(estimate))
 
 top_vars <- xwas_result$term
+
+mse_ns[mse_ns$Exposures %in% top_vars,] |>
+  ggplot(aes(x=Exposures,y=MSE,fill=Exposures )) + 
+  geom_boxplot() +scale_x_discrete(guide = guide_axis(angle = 45))+
+  theme_minimal()+theme(legend.position="none")
+
+
+# select top N = 30
 
 
 

@@ -50,12 +50,12 @@ cv_base_m <- function(model_list,label,group_col,df=nhanes) {
 #' @examples lm_str <- 'diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
 #' anova_lrt(lm_str)
 anova_lrt <- function(form_str, data=nhanes){
-  full_model <- lm(formula = as.formula(form_str),data)
+  full_model <- glm(formula = as.formula(form_str),data,family = gaussian())
 
   form_str <- gsub(" ", "", form_str, fixed = TRUE)
   terms <- gsub("[+~*]", " ", form_str)
   terms <- c(unlist(strsplit(terms," ")),"Full Model")
-  cols <- c("Diff Terms",'RSS','Df',"Sum of Sq","RSS Diff Ratio","Pr(>Chi)")
+  cols <- c("Terms",'RSS','Df',"Deviance","Ratio","Pr(>Chi)")
   n_terms <- length(terms)-1
   lrt_mtx <- matrix(0, nrow = n_terms, ncol = length(cols))
   colnames(lrt_mtx) <- cols
@@ -67,13 +67,13 @@ anova_lrt <- function(form_str, data=nhanes){
     remove_term <- gsub("\\(","\\\\(",remove_term)
     remove_term <- gsub("\\)","\\\\)",remove_term)
     sub_str <- gsub(remove_term, "", form_str)
-    sub_model <- lm(formula = as.formula(sub_str),data)
+    sub_model <- glm(formula = as.formula(sub_str),data,family = gaussian())
 
     ano_res <- anova(sub_model,full_model,test="LRT")
-    lrt_mtx[i,2] <- round(ano_res$RSS[2],3)
+    lrt_mtx[i,2] <- round(ano_res$"Resid. Dev"[2],3)
     lrt_mtx[i,3] <- round(ano_res$Df[2],3)
-    lrt_mtx[i,4] <- round(ano_res$"Sum of Sq"[2],3)
-    lrt_mtx[i,5] <- paste0(round(ano_res$"Sum of Sq"[2]/ano_res$RSS[2]*100,3),"%")
+    lrt_mtx[i,4] <- round(ano_res$"Deviance"[2],3)
+    lrt_mtx[i,5] <- paste0(round(ano_res$"Deviance"[2]/ano_res$"Resid. Dev"[2]*100,3),"%")
     p_value <- ano_res$"Pr(>Chi"[2]
     lrt_mtx[i,6] <- if(is.na(p_value) | p_value<1e-3) "<1e-3" else round(p_value,3)
 
