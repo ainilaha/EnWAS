@@ -70,11 +70,11 @@ anova_lrt <- function(form_str, data=nhanes){
     sub_model <- glm(formula = as.formula(sub_str),data,family = gaussian())
 
     ano_res <- anova(sub_model,full_model,test="LRT")
-    lrt_mtx[i,2] <- round(ano_res$"Resid. Dev"[2],3)
+    lrt_mtx[i,2] <- round(ano_res$"Resid. Dev"[1],3)
     lrt_mtx[i,3] <- round(ano_res$Df[2],3)
     lrt_mtx[i,4] <- round(ano_res$"Deviance"[2],3)
     lrt_mtx[i,5] <- paste0(round(ano_res$"Deviance"[2]/ano_res$"Resid. Dev"[2]*100,3),"%")
-    p_value <- ano_res$"Pr(>Chi"[2]
+    p_value <- ano_res$"Pr(>Chi)"[2]
     lrt_mtx[i,6] <- if(is.na(p_value) | p_value<1e-3) "<1e-3" else round(p_value,3)
 
   }

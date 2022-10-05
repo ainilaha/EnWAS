@@ -27,17 +27,12 @@ enwas <-
       data_set[, num_cols] <- lapply(data_set[, num_cols], invNorm)
     }
 
-    qc_cols <- c('terms',"null.deviance","df.null","logLik",
-                 "AIC","BIC","deviance","df.residual", "nobs")
+    qc_cols <- c('terms',"logLik","AIC","BIC", # basic info form the model
+                 "Deviance","Ratio","P_Chi", # for ANOVA LRT
+                 "LR","p_LRT") # Vuong's test
     qc_mtx <- matrix(0, nrow = num_var, ncol = length(qc_cols))
     colnames(qc_mtx) <- qc_cols
     qc_mtx[,1] <- exposure_vars
-
-    lrt_cols <- c('terms',"Resid. Dev","Df","Deviance","Ratio","Pr(>Chi)",
-                  "omega","p_omega","LRTstat","p_LRT")
-    lrt_mtx <- matrix(0, nrow = num_var, ncol = length(lrt_cols))
-    colnames(lrt_mtx) <- lrt_cols
-    lrt_mtx[,1] <- exposure_vars
 
     base_m <- glm(formula = as.formula(base_model),data_set,family = gaussian())
     association_list <- data.frame()
@@ -56,19 +51,16 @@ enwas <-
       mod_df <- broom::tidy(mod)
       association_list <- rbind(association_list, mod_df)
 
-      qc_mtx[i,2:9] <- round(unlist(broom::glance(mod)),3)
+      qc_mtx[i,2:4] <- round(unlist(broom::glance(mod))[c('logLik','AIC','BIC')],3)
       #-----------------ANOVA LRT---------------------------
       ano_res <- anova(base_m,mod,test="LRT")
-      lrt_mtx[i,2:4] <- round(unlist(ano_res[2,c("Resid. Dev","Df","Deviance")]),3)
-      lrt_mtx[i,5] <- paste0(round(ano_res$"Deviance"[2]/ano_res$"Resid. Dev"[2]*100,3),"%")
-      p_value <- ano_res$"Pr(>Chi"[2]
-      lrt_mtx[i,6] <- if(is.na(p_value) | p_value<1e-4) "<1e-4" else round(p_value,4)
-
+      qc_mtx[i,5] <- round(unlist(ano_res[2,"Deviance"]),3)
+      qc_mtx[i,6] <- round(ano_res$"Deviance"[2]/ano_res$"Resid. Dev"[2]*100,3)
+      qc_mtx[i,7] <- round(unlist(ano_res[2,"Pr(>Chi)"]),4)
       #-----------------vuongtest---------------------------
       vong <- nonnest2::vuongtest(base_m,mod,nested = TRUE)
-      lrt_mtx[i,7:9] <- round(unlist(vong[c("omega","p_omega","LRTstat")]),3)
-      p_value <- vong$p_LRT$A
-      lrt_mtx[i,10] <- if(is.na(p_value) | p_value<1e-3) "<1e-4" else round(p_value,4)
+      qc_mtx[i,8] <- round(vong$LRTstat,3)
+      qc_mtx[i,9] <- round(vong$p_LRT$A,4)
 
 
     }
@@ -101,11 +93,9 @@ enwas <-
 
     qc_mtx <- as.data.frame(qc_mtx)
     qc_mtx <- qc_mtx[qc_mtx$terms %in%xwas_list$term,]
+    qc_mtx[,2:9] <- sapply(qc_mtx[,2:9],as.numeric)
 
-    lrt_mtx <- as.data.frame(lrt_mtx)
-    lrt_mtx <- lrt_mtx[lrt_mtx$terms %in%xwas_list$term,]
-
-    return (list(qc_mtx = qc_mtx,lrt_mtx = lrt_mtx, enwas_res = xwas_list))
+    return (list(qc_mtx = qc_mtx,enwas_res = xwas_list))
 
 
   }

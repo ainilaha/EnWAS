@@ -332,3 +332,47 @@ g_raw <- function(data,
 
   g
 }
+
+
+#' Plot for EnWAS AC/AC
+#'
+#' @param data AC/AC matrix
+#' @param y metrics
+#' @param x term
+#' @param top_n top n terms
+#' @param is_desc flag to decide desc
+#'
+#' @return plot results
+#' @export
+#'
+#' @examples lollipop(ns_enwas$qc_mtx,y="p_LRT")
+lollipop <- function(data,
+                     y = "AIC",
+                     x = "terms",
+                     top_n = 20,
+                     is_desc = FALSE) {
+  x_order <-
+    if (is_desc)
+      paste0("reorder(", x, ",dplyr::desc(", y, "))")
+  else
+    paste0("reorder(", x, ",", y, ")")
+  data[order(data[, y], decreasing = is_desc), ] |> head(top_n) |>
+    ggplot(aes_string(x = x_order, y = y, colour = x)) +
+    geom_point(size = 4) +
+    geom_segment(aes_string(
+      x = x,
+      xend = x,
+      y = paste0("min(", y, ")"),
+      yend = y
+    )) +
+    scale_x_discrete(guide = guide_axis(angle = 45)) + xlab(x) +
+    theme_minimal() +
+    coord_flip() +
+    theme(
+      panel.grid.major.y = element_blank(),
+      panel.border = element_blank(),
+      axis.ticks.y = element_blank(),
+      legend.position = "none"
+    )
+}
+
