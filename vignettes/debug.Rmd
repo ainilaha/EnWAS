@@ -1,0 +1,55 @@
+---
+title: "Debug"
+author: "Laha Ale"
+date: '2022-10-06'
+output: html_document
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+## 1. Load libs
+
+```{r setup,warning=FALSE,message=FALSE}
+library(EnWAS)
+library(splines)
+library(ggplot2)
+library(ggpubr)
+library(dplyr)
+```
+```{r pre}
+phesant_res <- phesant(nhanes)
+nhanes <- phesant_res$data
+```
+## Base model
+DR1TNUMF - Number of foods reported, 0 to 52
+https://wwwn.cdc.gov/Nchs/Nhanes/2007-2008/DR1TOT_E.htm#DR1TNUMF
+```{r base_model}
+ns_str <-
+  'diastolic ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
+ns_base_glm <- glm(formula = as.formula(ns_str), family = gaussian,nhanes)
+
+ns_muf_glm <- glm(formula = as.formula(paste0(ns_str,"+DR1TNUMF")), family = gaussian,nhanes)
+
+
+ns_base_lm <- lm(formula = as.formula(ns_str),nhanes)
+
+ns_muf_lm <- lm(formula = as.formula(paste0(ns_str,"+DR1TNUMF")),nhanes)
+```
+# ANOVA LRT
+```{r base_model1}
+anova(ns_base_glm,ns_muf_glm,test="LRT")
+anova(ns_base_lm,ns_muf_lm,test="LRT")
+
+```
+
+
+
+# Vunong test
+
+```{r base_model3}
+nonnest2::vuongtest(ns_base_lm,ns_muf_lm,nested = TRUE)
+```

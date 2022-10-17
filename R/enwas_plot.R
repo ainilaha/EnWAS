@@ -17,15 +17,19 @@
 forest_plot <- function(xwas_result,top_n=20) {
 
 
-  xwas_result <- xwas_result |> dplyr::top_n(top_n,abs(estimate))
+  xwas_top <- xwas_result |> filter(lower*upper > 0) |>
+    dplyr::top_n(top_n,abs(estimate))
+  if (nrow(xwas_top)==0){
+    xwas_top <- xwas_result
+  }
 
-  n <- nrow(xwas_result)
-  xwas_result <- xwas_result |> dplyr::arrange(dplyr::desc(estimate)) |>
+  n <- nrow(xwas_top)
+  xwas_top <- xwas_top |> dplyr::arrange(dplyr::desc(estimate)) |>
     dplyr::mutate(xmin = seq(0.5, n - 0.5, by = 1),
                   xmax = seq(1.5, n + 0.5, by = 1))
-  xwas_result$col <- as.numeric(rownames(xwas_result)) %% 2
+  xwas_top$col <- as.numeric(rownames(xwas_top)) %% 2
 
-  xwas_result |> ggplot(aes(x = reorder(term,estimate),
+  xwas_top |> ggplot(aes(x = reorder(term,estimate),
                y = estimate,
                colour = estimate)) +
     geom_point(size = 2) +
@@ -83,7 +87,7 @@ forest_plot_mult <- function(xwas_result_list,top_n=20) {
 
   tem_df <- tem_df[tem_df$term %in% top_diff,]
 
-  n <- top_n
+  n <- nrow(tem_df)
   tem_df$col <- as.numeric(rownames(tem_df)) %% 2
   tem_df <- tem_df |> dplyr::mutate(xmin = seq(0.5, n - 0.5, by = 1),
                              xmax = seq(1.5, n + 0.5, by = 1))
@@ -201,7 +205,7 @@ plot_bins2 <-
       rep(names(df_list), each = nrow(df_list[[1]]))
 
     g <-
-      ggplot(df, aes(breaks, mean, color = Model)) + geom_point() +
+      ggplot(df, aes(breaks, mean, color = Model)) + geom_point(size=1.5) +
       geom_errorbar(aes(ymin = y_min, ymax = y_max)) +
       geom_smooth(aes(breaks, mean), method = "loess",
                   formula=y~x,

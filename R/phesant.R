@@ -66,7 +66,7 @@ phesant <- function(df) {
 
 
   # **********************categorical (single) end************************
-
+  continous_cols<-continous_cols[!is.na(continous_cols)]
   data_types[continous_cols] <- 'continuous'
   data_types[bin_cols] <- 'binary'
   data_types[order_cols] <- 'ordered'

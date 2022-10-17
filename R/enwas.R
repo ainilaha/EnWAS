@@ -34,7 +34,7 @@ enwas <-
     colnames(qc_mtx) <- qc_cols
     qc_mtx[,1] <- exposure_vars
 
-    base_m <- glm(formula = as.formula(base_model),data_set,family = gaussian())
+
     association_list <- data.frame()
     # factor_terms <- c() # to hold the factors terms
     for (i in 1:num_var) {
@@ -45,10 +45,18 @@ enwas <-
       #     c(factor_terms, paste0(exposure, levels(data_set[, exposure])))
       # }
       # model_list[[i]] <- mod
+      # print(exposure)
+      # print(sapply(data[!is.na(data[,exposure]),], function(x) sum(is.na(x))))
+      base_m <- glm(formula = as.formula(base_model),data_set[!is.na(data_set[,exposure]),],
+                    family = gaussian,na.action = na.omit)
 
       model <- build_formula(base_model, exposure)
-      mod <- glm(model, data_set,family = gaussian())
+      mod <- glm(model, data_set[!is.na(data_set[,exposure]),],
+                 family = gaussian,na.action = na.omit)
+      # print(summary(mod))
       mod_df <- broom::tidy(mod)
+      mod_df$count <- nrow(data_set[!is.na(data_set[,exposure]),])
+      # print(knitr::kable(mod_df))
       association_list <- rbind(association_list, mod_df)
 
       qc_mtx[i,2:4] <- round(unlist(broom::glance(mod))[c('logLik','AIC','BIC')],3)
@@ -65,7 +73,7 @@ enwas <-
 
     }
 
-
+    # print(knitr::kable(association_list))
     # xwas_list <-
     #   association_list[association_list$term %in% c(exposure_vars, factor_terms), ]
 
@@ -75,7 +83,7 @@ enwas <-
 
     if(inv_norm==FALSE){
       sd_x_list <-  sapply(data_set, function(x)
-        sd(as.numeric(x)))
+        sd(as.numeric(x),na.rm = TRUE))
       for (var in exposure_vars) {
         xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] <-
           xwas_list[grepl(var, xwas_list$term), c('estimate', 'std.error')] * sd_x_list[var]
@@ -96,6 +104,7 @@ enwas <-
     qc_mtx[,2:9] <- sapply(qc_mtx[,2:9],as.numeric)
 
     return (list(qc_mtx = qc_mtx,enwas_res = xwas_list))
+
 
 
   }
@@ -121,27 +130,33 @@ enwas_cv <-
            exposure_vars,
            train_set,
            test_set,
-           lab_col="diastolic",
+           lab_col="DIASTOLIC",
            inv_norm = FALSE) {
 
     num_var <- length(exposure_vars)
 
     model_list <- vector(mode = "list", length = num_var)
     names(model_list) <- exposure_vars
-    num_cols <- sapply(train_set[, exposure_vars], is.numeric)
-    num_cols <- names(num_cols[num_cols == TRUE])
+    # num_cols <- sapply(train_set[, exposure_vars], is.numeric)
+    # num_cols <- names(num_cols[num_cols == TRUE])
     if (inv_norm) {
-      train_set[, num_cols] <- lapply(train_set[, num_cols], invNorm)
-      test_set[, num_cols] <- lapply(test_set[, num_cols], invNorm)
+      if (length(exposure_vars)>1){
+        train_set[, exposure_vars] <- lapply(train_set[, exposure_vars], invNorm)
+        test_set[, exposure_vars] <- lapply(test_set[, exposure_vars], invNorm)
+      }else{
+        train_set[, exposure_vars] <- invNorm(train_set[, exposure_vars])
+        test_set[, exposure_vars] <- invNorm(test_set[, exposure_vars])
+        }
+
     }
 
     mse <- rep(NA,num_var)
 
     for (i in 1:num_var) {
       model_str <- build_formula(base_model, exposure_vars[i])
-      model <- lm(model_str, train_set)
+      model <- glm(model_str, train_set,family = gaussian(),na.action = na.omit)
       pred_vals <- predict(model, test_set)
-      mse[i] <- mean((pred_vals - test_set[,lab_col]) ^ 2)
+      mse[i] <- mean((pred_vals - test_set[,lab_col]) ^ 2,na.rm = TRUE)
     }
 
     mse
