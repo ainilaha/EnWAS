@@ -22,7 +22,7 @@ library(dplyr)
 
 ## 2. Loaded data
 
-* we may need to wrap up as function and slitly change the the process with PHESANT-like page.
+* we may need to wrap up as function and slightly change the the process with PHESANT-like page.
 
 ```{r pre}
 # phesant_res <- phesant(nhanes)

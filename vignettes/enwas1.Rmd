@@ -64,12 +64,16 @@ Before feeding the data into any model, we probably need to do data preprocess (
 
 However, it requires a lot of effort to preprocess the data when we have large data sets with thousands of phenotype to check.
 For NHANES data, we developed a PHESANT-like tool that can preprocess the data, and it can help convert the data into suitable data types. 
+
+***We may need to discuss how we allow users to configure the tables and prototypes, json file seems OK.***
+
 ```{r enwas00, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 enwas_all <- function(base_df=base_df, nhanes_db=nhanes_db,
                       epx_file="C:/projects/EnWAS/data/phenotypes.json",inv=FALSE){
   exposures <- jsonlite::fromJSON(epx_file)
   qc_mtrx <- data.frame(matrix(ncol = 9, nrow = 0))
   xwas_df <- data.frame(matrix(ncol = 9, nrow = 0))
+  model_list <- list() ## need to replace with :vector(mode = "list", length = num_var)
   for(tb_name in names(exposures)){
     exprs <- exposures[tb_name][[1]]
     expr_data <- load_exprs(exprs,tb_name,nhanes_db)
@@ -77,8 +81,9 @@ enwas_all <- function(base_df=base_df, nhanes_db=nhanes_db,
     ns_enwas <- enwas(ns_str, exprs, data,inv_norm = inv)
     xwas_df <- rbind(xwas_df,ns_enwas$enwas_res)
     qc_mtrx <- rbind(qc_mtrx,ns_enwas$qc_mtx)
+    model_list <- c(model_list,ns_enwas$model_list)
   }
-  return (list(qc_mtx = qc_mtrx,enwas_res = xwas_df))
+  return (list(qc_mtx = qc_mtrx,enwas_res = xwas_df,model_list=model_list))
 }
 
 xwas <- enwas_all(base_df,nhanes_db)
@@ -105,9 +110,57 @@ forest_plot_mult(
     ns_inv = xwas_inv$enwas_res
   ),20
 )
-qplot(xwas$enwas_res$estimate,xwas_inv$enwas_res$estimate,geom = c("point","smooth")) + theme_minimal() + xlab("EnWAS") + ylab("EnWAS INT")
+
+
+
+enwas_res = data.frame(x=xwas$enwas_res$estimate,
+                       x_upper = xwas$enwas_res$upper,
+                       x_lower = xwas$enwas_res$lower,
+                       y=xwas_inv$enwas_res$estimate,
+                       y_upper=xwas_inv$enwas_res$upper,
+                       y_lower=xwas_inv$enwas_res$lower,
+                       term = xwas_inv$enwas_res$term
+                       )
+
+
+enwas_res |> 
+ggplot(aes(x,y,label = term, colour=term)) + 
+  geom_point(size=1.5)+
+  geom_errorbar(aes(ymin = y_lower, ymax = y_upper))+
+  geom_errorbarh(aes(xmin = x_lower,xmax = x_upper)) + geom_text() +theme_minimal()+
+  theme(legend.position = "none")+xlab("EnWAS") + ylab("EnWAS INT")
 
 ```
+
+
+### 3.1 Likelihood ratio Inverse Normal Transformation to None transformd
+
+
+```{r enwas_inv2, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+library(knitr)
+library(kableExtra)
+
+# terms <- xwas$enwas_res$term
+# lrt_mtx <- matrix(0, nrow = length(terms), ncol = 3)
+# colnames(lrt_mtx) <- c("term","LRTstat","P_value")
+# lrt_mtx[,1] <- terms
+# 
+# for (term in terms){
+#       non_trans_model <- xwas$model_list[term][[1]]
+#       inv_model <- xwas_inv$model_list[term][[1]]
+#       vong <- nonnest2::vuongtest(non_trans_model,inv_model)
+#       lrt_mtx[i,2] <- round(vong$LRTstat,3)
+#       lrt_mtx[i,3] <- round(vong$p_LRT$A,4)
+# }
+# 
+# lrt_mtx <- as.data.frame(lrt_mtx)
+# 
+# lrt_mtx |> dplyr::arrange(P_value) |> 
+#   kbl() |> kable_classic_2(full_width = F)
+
+```
+
+
 
 ### 1.0  Folate - RBC
 Folate, serum
@@ -140,8 +193,7 @@ plot_p(list(ns = xwas$enwas_res,  ns_inv = xwas_inv$enwas_res))
 ### 5. QA/QC
 
 ```{r aic, echo=TRUE,warning=F, message=FALSE,out.width = '90%',dpi = 200}
-library(knitr)
-library(kableExtra)
+
 
 xwas$enwas_res |> filter(lower*upper > 0) |>
     dplyr::top_n(30,abs(estimate)) |>

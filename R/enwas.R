@@ -20,7 +20,8 @@ enwas <-
 
     num_var <- length(exposure_vars)
 
-    # model_list <- vector(mode = "list", length = num_var)
+    model_list <- vector(mode = "list", length = num_var)
+    names(model_list) <- exposure_vars
     num_cols <- sapply(data_set[, exposure_vars], is.numeric)
     num_cols <- names(num_cols[num_cols == TRUE])
     if (inv_norm) {
@@ -44,7 +45,7 @@ enwas <-
       #   factor_terms <-
       #     c(factor_terms, paste0(exposure, levels(data_set[, exposure])))
       # }
-      # model_list[[i]] <- mod
+
       # print(exposure)
       # print(sapply(data[!is.na(data[,exposure]),], function(x) sum(is.na(x))))
       base_m <- glm(formula = as.formula(base_model),data_set[!is.na(data_set[,exposure]),],
@@ -53,10 +54,10 @@ enwas <-
       model <- build_formula(base_model, exposure)
       mod <- glm(model, data_set[!is.na(data_set[,exposure]),],
                  family = gaussian,na.action = na.omit)
-      # print(summary(mod))
+      model_list[[i]] <- mod
       mod_df <- broom::tidy(mod)
       mod_df$count <- nrow(data_set[!is.na(data_set[,exposure]),])
-      # print(knitr::kable(mod_df))
+
       association_list <- rbind(association_list, mod_df)
 
       qc_mtx[i,2:4] <- round(unlist(broom::glance(mod))[c('logLik','AIC','BIC')],3)
@@ -66,7 +67,7 @@ enwas <-
       qc_mtx[i,6] <- round(ano_res$"Deviance"[2]/ano_res$"Resid. Dev"[2]*100,3)
       qc_mtx[i,7] <- round(unlist(ano_res[2,"Pr(>Chi)"]),4)
       #-----------------vuongtest---------------------------
-      vong <- nonnest2::vuongtest(base_m,mod,nested = TRUE)
+      vong <- nonnest2::vuongtest(base_m,mod)
       qc_mtx[i,8] <- round(vong$LRTstat,3)
       qc_mtx[i,9] <- round(vong$p_LRT$A,4)
 
@@ -103,7 +104,7 @@ enwas <-
     qc_mtx <- qc_mtx[qc_mtx$terms %in%xwas_list$term,]
     qc_mtx[,2:9] <- sapply(qc_mtx[,2:9],as.numeric)
 
-    return (list(qc_mtx = qc_mtx,enwas_res = xwas_list))
+    return (list(qc_mtx = qc_mtx,enwas_res = xwas_list,model_list=model_list[xwas_list$term]))
 
 
 

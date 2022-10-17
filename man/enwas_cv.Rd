@@ -9,7 +9,7 @@ enwas_cv(
   exposure_vars,
   train_set,
   test_set,
-  lab_col = "diastolic",
+  lab_col = "DIASTOLIC",
   inv_norm = FALSE
 )
 }
