@@ -24,9 +24,6 @@ enwas <-
     names(model_list) <- exposure_vars
     num_cols <- sapply(data_set[, exposure_vars], is.numeric)
     num_cols <- names(num_cols[num_cols == TRUE])
-    if (inv_norm) {
-      data_set[, num_cols] <- lapply(data_set[, num_cols], invNorm)
-    }
 
     qc_cols <- c('terms',"logLik","AIC","BIC", # basic info form the model
                  "Deviance","Ratio","P_Chi", # for ANOVA LRT
@@ -46,17 +43,23 @@ enwas <-
       #     c(factor_terms, paste0(exposure, levels(data_set[, exposure])))
       # }
 
-      # print(exposure)
       # print(sapply(data[!is.na(data[,exposure]),], function(x) sum(is.na(x))))
-      base_m <- glm(formula = as.formula(base_model),data_set[!is.na(data_set[,exposure]),],
+
+      # We need to remove the NAs for current phenotype before invNorm(),
+      # otherwise it fill NA, which may undesired values.
+      ph_dat <- data_set[!is.na(data_set[,exposure]),]
+      if (inv_norm & exposure %in% num_cols) {
+        ph_dat[,exposure] <- invNorm(ph_dat[,exposure])
+      }
+      base_m <- glm(formula = as.formula(base_model),ph_dat,
                     family = gaussian,na.action = na.omit)
 
       model <- build_formula(base_model, exposure)
-      mod <- glm(model, data_set[!is.na(data_set[,exposure]),],
+      mod <- glm(model, ph_dat,
                  family = gaussian,na.action = na.omit)
       model_list[[i]] <- mod
       mod_df <- broom::tidy(mod)
-      mod_df$count <- nrow(data_set[!is.na(data_set[,exposure]),])
+      mod_df$count <- nrow(ph_dat)
 
       association_list <- rbind(association_list, mod_df)
 

@@ -53,8 +53,6 @@ base_df$years <- as.factor(base_df$years)
 ## 1. Run EnWAS
 
 ```{r enwas, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-# lm_str <- 'diastolic ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
-# lm_enwas <- enwas(lm_str, exposure_vars, nhanes)
 ns_str <-
   'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,75)) + RIDRETH1'
 
@@ -119,44 +117,63 @@ enwas_res = data.frame(x=xwas$enwas_res$estimate,
                        y=xwas_inv$enwas_res$estimate,
                        y_upper=xwas_inv$enwas_res$upper,
                        y_lower=xwas_inv$enwas_res$lower,
+                       diff = abs(xwas_inv$enwas_res$estimate-xwas$enwas_res$estimate),
                        term = xwas_inv$enwas_res$term
                        )
 
+library(ggrepel)
 
-enwas_res |> 
-ggplot(aes(x,y,label = term, colour=term)) + 
+top_n_diff <- 20
+
+enwas_res |>
+ggplot(aes(x,y,label = term, colour=term)) +
   geom_point(size=1.5)+
   geom_errorbar(aes(ymin = y_lower, ymax = y_upper))+
-  geom_errorbarh(aes(xmin = x_lower,xmax = x_upper)) + geom_text() +theme_minimal()+
+  geom_errorbarh(aes(xmin = x_lower,xmax = x_upper)) +
+  geom_text_repel(data=dplyr::top_n(enwas_res,top_n_diff,diff),aes(label=term))+
+  theme_minimal()+
+  theme(legend.position = "none")+xlab("EnWAS") + ylab("EnWAS INT")
+
+
+
+enwas_res |>
+ggplot(aes(x,y,label = term,colour=term)) +
+  geom_point(size=1.5)+
+  geom_smooth(aes(x,y,colour=NULL),method = "lm", formula = y~x)+
+  geom_text_repel(data=dplyr::top_n(enwas_res,top_n_diff,diff),aes(label=term))+
+  theme_minimal()+
   theme(legend.position = "none")+xlab("EnWAS") + ylab("EnWAS INT")
 
 ```
 
 
-### 3.1 Likelihood ratio Inverse Normal Transformation to None transformd
+### 3.1 Likelihood Ratio Test: Inverse Normal Transformation to None transformd
+
+Issues
 
 
 ```{r enwas_inv2, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 library(knitr)
 library(kableExtra)
 
-# terms <- xwas$enwas_res$term
-# lrt_mtx <- matrix(0, nrow = length(terms), ncol = 3)
-# colnames(lrt_mtx) <- c("term","LRTstat","P_value")
-# lrt_mtx[,1] <- terms
-# 
-# for (term in terms){
-#       non_trans_model <- xwas$model_list[term][[1]]
-#       inv_model <- xwas_inv$model_list[term][[1]]
-#       vong <- nonnest2::vuongtest(non_trans_model,inv_model)
-#       lrt_mtx[i,2] <- round(vong$LRTstat,3)
-#       lrt_mtx[i,3] <- round(vong$p_LRT$A,4)
-# }
-# 
-# lrt_mtx <- as.data.frame(lrt_mtx)
-# 
-# lrt_mtx |> dplyr::arrange(P_value) |> 
-#   kbl() |> kable_classic_2(full_width = F)
+terms <- xwas$enwas_res$term
+lrt_mtx <- matrix(0, nrow = length(terms), ncol = 3)
+colnames(lrt_mtx) <- c("term","LRTstat","P_value")
+lrt_mtx[,1] <- terms
+
+for (i in 1:length(terms)){
+  term <- terms[i]
+  non_trans_model <- xwas$model_list[term][[1]]
+  inv_model <- xwas_inv$model_list[term][[1]]
+  vong <- nonnest2::vuongtest(non_trans_model,inv_model,nested = TRUE)
+  lrt_mtx[i,2] <- round(vong$LRTstat,3)
+  lrt_mtx[i,3] <- round(vong$p_LRT$A,4)
+}
+
+lrt_mtx <- as.data.frame(lrt_mtx)
+
+lrt_mtx |> dplyr::arrange(P_value) |>
+  kbl() |> kable_classic_2(full_width = F)
 
 ```
 
@@ -279,12 +296,12 @@ for(tb_name in names(exposures)){
 }
 
 
-cv_df |>
-  ggplot(aes(x=Exposures,y=MSE,fill=Exposures )) +
-  geom_boxplot()+
-  scale_x_discrete(guide = guide_axis(angle = 45))+
-  scale_y_continuous(limits = quantile(cv_df$MSE, c(0.0, 0.9)))+
-  theme_minimal()+theme(legend.position="none")
+# cv_df |>
+#   ggplot(aes(x=Exposures,y=MSE,fill=Exposures )) +
+#   geom_boxplot()+
+#   scale_x_discrete(guide = guide_axis(angle = 45))+
+#   scale_y_continuous(limits = quantile(cv_df$MSE, c(0.0, 0.9)))+
+#   theme_minimal()+theme(legend.position="none")
 
 
 dbDisconnect(nhanes_db)
