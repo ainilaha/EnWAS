@@ -22,51 +22,115 @@ library(dplyr)
 
 ## 2. Loaded data
 
-* we may need to wrap up as function and slightly change the the process with PHESANT-like page.
+### 2.1 Load data for the base model
+
+We averaged two reads of diastolic blood pressures(`(BPXDI1+BPXDI2)/2 AS DIASTOLIC` ) along with confounders gender(`RIAGENDR`), age (`RIDAGEYR`), ethnicity (`RIDRETH1`), BMI(`BMXBMI`) and the ratio of family income to poverty (`INDFMPIR`) presents socioeconomic status (SES).
+
+We removed the blood pressure filled with 0, and NAs in the data. The gender(`RIAGENDR`) and ethnicity (`RIDRETH1`) are converted to categorical variables.
 
 ```{r pre}
-# phesant_res <- phesant(nhanes)
-# nhanes <- phesant_res$data
 
 library(DBI)
 nhanes_db <- DBI::dbConnect(RSQLite::SQLite(), "C:\\projects\\data_nhanes\\nhanes_new.sqlite")
-dbListTables(nhanes_db)
-
+# dbListTables(nhanes_db)
 
 base_df <- dbGetQuery(nhanes_db, "SELECT demo.SEQN,
-                                    (BPXDI1+BPXDI2)/2 AS DIASTOLIC,RIAGENDR,RIDAGEYR,RIDRETH1,BMXBMI,
-                                    demo.years
+                                    (BPXDI1+BPXDI2)/2 AS DIASTOLIC,
+                                    RIAGENDR,RIDAGEYR,RIDRETH1,BMXBMI, 
+                                    INDFMPIR,DMDEDUC2
                                   FROM
-                                    demo
-                                  INNER JOIN BodyMeasures ON demo.SEQN=BodyMeasures.SEQN
-                                  INNER JOIN BloodPressure ON demo.SEQN=BloodPressure.SEQN
+                                    DemographicVariablesAndSampleWeights as demo
+                                  INNER JOIN body_measures ON demo.SEQN=body_measures.SEQN
+                                  INNER JOIN blood_pressure ON demo.SEQN=blood_pressure.SEQN
                                   WHERE
                                       RIDAGEYR>20
                                     AND BMXBMI is not NULL
                                     AND BPXDI1 IS NOT NULL and BPXDI1 <> 0
-                                    AND BPXDI2 IS NOT NULL and BPXDI2 <> 0")
+                                    AND BPXDI2 IS NOT NULL and BPXDI2 <> 0
+                       ")
 base_df$RIDRETH1 <- as.factor(base_df$RIDRETH1)
 base_df$RIAGENDR <- as.factor(base_df$RIAGENDR)
-base_df$years <- as.factor(base_df$years)
+
+years <- dbGetQuery(nhanes_db, "SELECT SEQN, years from demo")
+base_df <- merge(base_df,years, by="SEQN")
+base_df$years <- as.factor(base_df$year)
 dbDisconnect(nhanes_db)
 ```
+
+
 
 ## 3. Identify Confonders and Build Base Model
 Given the scientific question, we can identify a response or outcome of interest and covariates in the base models.
 
-In the following demonstrations, we built a linear model and a spline model to show that spline models outperform the linear when we have continuous variables. The outcome is diastolic is the average of the diastolic first (BPXDI1) and second (BPXDI2) reads, and the covariates are Age (RIDAGEYR), Gender(RIAGENDR), BMI(BMXBMI), and ethnicity(RIDRETH1).
+### 3.1 Check socioeconomic status (SES) impacts
+
+The ratio of family income to poverty (`INDFMPIR`) has reasonable distribution in the range of 0 to 4.99 and has a peak at 5 because 5 represents the values greater than or equal to 5.00. There is no clear pattern in the smooth scatter plot of diastolic and INDFMPIR.
+
+```{r base_model}
+layout(matrix(c(1,2), ncol=2, byrow=TRUE))
+par(mar=c(4.0,4.0,3.5,1))
+hist(base_df$INDFMPIR)
+smoothScatter(base_df$INDFMPIR,base_df$DIASTOLIC) 
+```
+
+Now, we can check the impacts of SES with ANOVA LRT. Sum of Sq = 1991.423/3741194=0.0005322961=0.05%, which indicates contribution is too small. In addition, we may have to remove some the data record where INDFMPIR values are NA. Therefore, INDFMPIR may not worth to include base model.
+
+```{r ses_in}
+
+
+ns_str <-
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
+ns_base <- lm(formula = as.formula(ns_str), base_df[!is.na(base_df$INDFMPIR),])
+
+
+ns_str_in <-
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+ns(INDFMPIR,knots = seq(0, 5, by = 0.5),Boundary.knots=c(-0.5,5.5))'
+ns_base_in <- lm(formula = as.formula(ns_str_in), base_df[!is.na(base_df$INDFMPIR),])
+print_anova(anova(ns_base,ns_base_in,test="LRT"))
+```
+
+Similarly, we can find the Sum of Sq for `DMDEDUC2` is 2865.658/4091156=0.0007004519=0.07%, which also considerably small.
+
+```{r ses_edu}
+base_df$DMDEDUC2 <- as.factor(base_df$DMDEDUC2)
+ns_str <-
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
+ns_base <- lm(formula = as.formula(ns_str), base_df[!is.na(base_df$DMDEDUC2),])
+
+ns_str_edu <-
+  'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1+ DMDEDUC2'
+ns_base_edu <- lm(formula = as.formula(ns_str_edu), base_df[!is.na(base_df$DMDEDUC2),])
+
+print_anova(anova(ns_base,ns_base_edu,test="LRT"))
+```
+
+
+
+## 3.2 Build Base Model
+
+
+In the following demonstrations, we built a linear model and a spline model to show that spline models outperform the linear when we have continuous variables. The outcome is diastolic is the average of the diastolic first (`BPXDI1`) and second (`BPXDI2`) reads, gender(`RIAGENDR`), age (`RIDAGEYR`), ethnicity (`RIDRETH1`), BMI(`BMXBMI`) and the ratio of family income to poverty (`INDFMPIR`)
+
 
  Although the knots can be set with percentiles or with the degree of freedom, we manually set the knots because we want the knots fixed when we run EnWAS to compare the impacts of the phenotypes fairly.  We set age knots from 30 to 80 by 10s and boundary knots as (20, 90) because the age range is about 22 to 85. Increasing the number of knots may not hurt the model's performance when the data size is relatively large, but it is better to set fewer knots in ranges with fewer data points. We need to set the knots when the data distribution is skewed carefully. As the BMI distribution is considerably skewed, data points larger than 45 are much less than those in the range of 15-45. Therefore, we set knots for BMI as 15 to 45 by 5s and 45 to 65  by 10s, and boundary knots as (10, 85). Note that boundary knots are required when the knots are manually set; otherwise, the models may raise errors when the knots are out of the data range. 
 
 
-```{r base_model}
+```{r build_base_model}
 lm_str <- 'DIASTOLIC ~ RIDAGEYR*RIAGENDR + BMXBMI + RIDRETH1'
-lm_base <- glm(formula = as.formula(lm_str), family = gaussian,base_df)
+lm_base <- lm(formula = as.formula(lm_str),base_df)
 
 ns_str <-
   'DIASTOLIC ~ ns(RIDAGEYR, knots = seq(30, 80, by = 10), Boundary.knots=c(20,90)) * RIAGENDR + ns(BMXBMI,knots = c(seq(15, 45, by = 5),seq(45,65,by=10)),Boundary.knots=c(10,85)) + RIDRETH1'
-ns_base <- glm(formula = as.formula(ns_str), family = gaussian,base_df)
+ns_base <- lm(formula = as.formula(ns_str), base_df)
 ```
+
+
+
+
+
+
+
+
 
 ## 4. QA/QC for Base Model
 
@@ -148,7 +212,7 @@ base_raw_g <- ggplot(mpred_df,
   geom_smooth(aes(x = Age,y=value,colour=variable),size=1.5,
               method='lm',formula=y ~ splines::ns(x,df=7)
               )+
-  xlab("Age (year)")+ylab("Diastolic (mm Hg)")+ facet_grid(cols = vars(variable))+
+  xlab("Age (year)")+ylab("Diastolic (mmHg)")+ facet_grid(cols = vars(variable))+
    scale_colour_manual(name="Model", values=c("#E69F00", "#56B4E9"))+
   theme_minimal()
 
@@ -190,10 +254,10 @@ fitt_g <- ggplot(tmp_df, aes(x = Fitted_Value, y = Residuals)) +
 
 ```
 
-- <em><strong> a) </strong></em> 
-- <em><strong> b) </strong></em> 
-- <em><strong> c) </strong></em> 
-- <em><strong> d) </strong></em> 
+- <em><strong> a) </strong></em> The yellow and blue lines are generated by smooth prediction from linear and spline models. The dots are randomly sampled in 20% of the data points.
+- <em><strong> b) </strong></em> Smooth scatter plots for residuals with respect to fitted values, and there is no strong pattern in both cases even though the spline has less mean square error than the linear model.
+- <em><strong> c) </strong></em> Smooth scatter plots for residuals with respect to age variable,  and the linear model has a parabola-like pattern, whereas no obvious pattern for the spline model.
+- <em><strong> d) </strong></em> Binned plots for residuals with respect to age variable to look at the trends of residuals against age.
 
 ```{r BPXDI12, echo=TRUE,warning=FALSE,message=FALSE, fig.width = 10,fig.height=10}
 
@@ -230,21 +294,13 @@ mse_df |> ggplot(aes(x=as.numeric(years),y=MSE,color=model)) +
 
 ## 4.3 ANOVA LRT (Likelihood Ratio Test)
 
-Linear regression can be considered a special case of spline regression because spline can be a straight line. In other words, linear regression is a sub-model of spline regression in our case. Therefore, we can use ANOVA LRT to test whether the spline regression outperforms the linear regression. The spline regression has 23 more degrees of freedom than linear regression, and it reduces the residual sum of squares (RSS) from $3785310$ down to $3396489$, which is about $11.45\%$. $Pr(>Chi) < < 0.001$ may not be meaningful as we have a considerably large amount of data, making the variability small.
+Linear regression can be considered a special case of spline regression because spline can be a straight line. In other words, linear regression is a sub-model of spline regression in our case. Therefore, we can use ANOVA LRT to test whether the spline regression outperforms the linear regression. The spline regression has 23 more degrees of freedom than linear regression, and it reduces the residual sum of squares (RSS) from $4590843$ down to $4091156$, which is about $11\%$. $Pr(>Chi) < < 0.001$ may not be meaningful as we have a considerably large amount of data, making the variability small.
 
 
 ```{r anova1, echo=TRUE,results = "asis"}
 print_anova(anova(lm_base,ns_base,test="LRT"))
 ```
 
-We can drop of the terms in model to produce sub models and compare with full model, and the results can be produce as follow. *ratio=Deviance/Resid. Dev*
-
-```{r anova2, echo=TRUE,results = "asis"}
-lm_anvoa <- anova_lrt(lm_str,data = base_df)
-knitr::kable(lm_anvoa)
-ns_anvoa <- anova_lrt(ns_str,data = base_df)
-knitr::kable(ns_anvoa)
-```
 
 
 ## 4.4 Vuong Tests for Model Comparison
@@ -254,6 +310,7 @@ We can consider the linear models as a sub model of the spline model, and we can
 ```{r vuong, echo=TRUE,eval=FALSE,results = "asis"}
 library(nonnest2)
 vuongtest(lm_base,ns_base,nested = TRUE)
+
 ```
 Model 1 <br>
  Class: glm <br>

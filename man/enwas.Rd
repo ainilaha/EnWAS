@@ -4,7 +4,7 @@
 \alias{enwas}
 \title{Environment‐Wide Association Study (EnWAS)}
 \usage{
-enwas(base_model, exposure_vars, data_set, inv_norm = FALSE)
+enwas(base_model, exposure_vars, data_set, trans = "none")
 }
 \arguments{
 \item{base_model}{a string of base model}
@@ -13,7 +13,7 @@ enwas(base_model, exposure_vars, data_set, inv_norm = FALSE)
 
 \item{data_set}{data set}
 
-\item{inv_norm}{}
+\item{trans}{"log" :log and scale transformation or inv: inverse normal transformation}
 }
 \value{
 the model list and EnWAS result

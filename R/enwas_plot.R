@@ -116,6 +116,17 @@ forest_plot_mult <- function(xwas_result_list,top_n=20) {
       alpha = 0.3
     ) +
     scale_fill_manual(values = c('white', 'grey78'), guide = 'none') +
+    scale_color_manual(
+      values = c(
+        "#E69F00",
+        "#56B4E9",
+        "#009E73",
+        "#F0E442",
+        "#0072B2",
+        "#D55E00",
+        "#CC79A7"
+      )
+    )+
     coord_flip() +  # flip coordinates (puts labels on y axis)
     xlab("Exposures") + ylab("Estimate (95% CI)") +
     theme_bw()  # use a white background

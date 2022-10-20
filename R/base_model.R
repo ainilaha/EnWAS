@@ -55,7 +55,7 @@ anova_lrt <- function(form_str, data=nhanes){
   form_str <- gsub(" ", "", form_str, fixed = TRUE)
   terms <- gsub("[+~*]", " ", form_str)
   terms <- c(unlist(strsplit(terms," ")),"Full Model")
-  cols <- c("Terms",'RSS','Df',"Deviance","Ratio","Pr(>Chi)")
+  cols <- c("Terms",'RSS','Df',"Sum of Sq","Ratio","Pr(>Chi)")
   n_terms <- length(terms)-1
   lrt_mtx <- matrix(0, nrow = n_terms, ncol = length(cols))
   colnames(lrt_mtx) <- cols

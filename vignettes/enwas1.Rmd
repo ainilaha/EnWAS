@@ -22,35 +22,42 @@ library(splines)
 library(ggplot2)
 library(ggpubr)
 library(dplyr)
-data("nhanes")
-data("exposure_vars")
+# data("nhanes")
+# data("exposure_vars")
 # phesant_res <- phesant(nhanes)
 # nhanes <- phesant_res$data
 
 library(DBI)
 nhanes_db <- DBI::dbConnect(RSQLite::SQLite(), "C:\\projects\\data_nhanes\\nhanes_new.sqlite")
-dbListTables(nhanes_db)
 
 
 base_df <- dbGetQuery(nhanes_db, "SELECT demo.SEQN,
-                                    (BPXDI1+BPXDI2)/2 AS DIASTOLIC,RIAGENDR,RIDAGEYR,RIDRETH1,BMXBMI,
-                                    demo.years
+                                    (BPXDI1+BPXDI2)/2 AS DIASTOLIC,
+                                    RIAGENDR,RIDAGEYR,RIDRETH1,BMXBMI, INDFMPIR
                                   FROM
-                                    demo
-                                  INNER JOIN body_measures ON demo.SEQN=body_measures.SEQN
-                                  INNER JOIN blood_pressure ON demo.SEQN=blood_pressure.SEQN
+                                    DemographicVariablesAndSampleWeights as demo
+                                  INNER JOIN BodyMeasures ON demo.SEQN=BodyMeasures.SEQN
+                                  INNER JOIN BloodPressure ON demo.SEQN=BloodPressure.SEQN
                                   WHERE
                                       RIDAGEYR>20
                                     AND BMXBMI is not NULL
                                     AND BPXDI1 IS NOT NULL and BPXDI1 <> 0
-                                    AND BPXDI2 IS NOT NULL and BPXDI2 <> 0")
+                                    AND BPXDI2 IS NOT NULL and BPXDI2 <> 0
+                                    AND INDFMPIR IS NOT NULL  
+                       ")
 base_df$RIDRETH1 <- as.factor(base_df$RIDRETH1)
 base_df$RIAGENDR <- as.factor(base_df$RIAGENDR)
+
+years <- dbGetQuery(nhanes_db, "SELECT SEQN, years from demo")
+
+base_df <- merge(base_df,years, by="SEQN")
 base_df$years <- as.factor(base_df$years)
 
 ```
 
 ## 1. Run EnWAS
+
+### 1.0 Base Model
 
 ```{r enwas, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 ns_str <-
@@ -65,9 +72,11 @@ For NHANES data, we developed a PHESANT-like tool that can preprocess the data, 
 
 ***We may need to discuss how we allow users to configure the tables and prototypes, json file seems OK.***
 
+
+The following function takes data for the base model merge with the phenotype data configured JSON file and queries from the base. Further, we can  EnWAS function to run EnWAS on the phenotypes.
 ```{r enwas00, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 enwas_all <- function(base_df=base_df, nhanes_db=nhanes_db,
-                      epx_file="C:/projects/EnWAS/data/phenotypes.json",inv=FALSE){
+                      epx_file="./phenotypes.json",trans="none"){
   exposures <- jsonlite::fromJSON(epx_file)
   qc_mtrx <- data.frame(matrix(ncol = 9, nrow = 0))
   xwas_df <- data.frame(matrix(ncol = 9, nrow = 0))
@@ -76,7 +85,7 @@ enwas_all <- function(base_df=base_df, nhanes_db=nhanes_db,
     exprs <- exposures[tb_name][[1]]
     expr_data <- load_exprs(exprs,tb_name,nhanes_db)
     data <- merge(base_df,expr_data$data,by="SEQN")
-    ns_enwas <- enwas(ns_str, exprs, data,inv_norm = inv)
+    ns_enwas <- enwas(ns_str, exprs, data,trans = trans)
     xwas_df <- rbind(xwas_df,ns_enwas$enwas_res)
     qc_mtrx <- rbind(qc_mtrx,ns_enwas$qc_mtx)
     model_list <- c(model_list,ns_enwas$model_list)
@@ -85,6 +94,11 @@ enwas_all <- function(base_df=base_df, nhanes_db=nhanes_db,
 }
 
 xwas <- enwas_all(base_df,nhanes_db)
+```
+
+The following forest plot shows the estimates and CI of the exposure variables and only displays the top 30 ranked by absolute values of the estimates. The variables with their CI containing zeros are also removed.
+
+```{r enwas00_forest, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 forest_plot(xwas$enwas_res,30) # filter out CI contains 0
 ```
 
@@ -99,25 +113,54 @@ $$
 \operatorname{INT}\left(W_{i}\right)=\Phi^{-1}\left\{\frac{\operatorname{rank}\left(W_{i}\right)-c}{n+1-2 c}\right\}, c \in[0,1 / 2]
 $$ where c=3/8 is recommended.
 
-```{r enwas2, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
-xwas_inv <- enwas_all(base_df,nhanes_db,inv = TRUE)
+The following forest plot shows the top 30 exposures, ranked and filtered as abovementioned.
+```{r enwas_inv, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+xwas_inv <- enwas_all(base_df,nhanes_db,trans = "inv")
 forest_plot(xwas_inv$enwas_res,30)
+```
+
+### 4. Log and Z-transformation
+
+The phenotype are transformed with log and z-standardized.
+
+The following forest plot shows the top 30 exposures, ranked and filtered as abovementioned.
+```{r enwas_inv1, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+xwas_log <- enwas_all(base_df,nhanes_db,trans = "log")
+forest_plot(xwas_log$enwas_res,30)
+```
+
+
+
+The following forest plot shows the top 20 exposures, ranked by the differences in the estimates for the same variables.
+- `ns` denotes the variables non-transformed, but the estimates  with beta^hat * SD(X)
+- `ns_inv` denotes variables transformed inverse normal transformation
+- `ns-log` denotes variables transformed with log followed by z-transformation
+
+```{r enwas_inv1log, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 forest_plot_mult(
   list(
     ns = xwas$enwas_res,
-    ns_inv = xwas_inv$enwas_res
+    ns_inv = xwas_inv$enwas_res,
+    ns_log = xwas_log$enwas_res
   ),20
 )
+```
 
+The following scatter plot shows the inverse normal transformation estimates against estimates (beta^hat * SD(X)) of nontransformed variables. The top 20 has added text for the variables, but it is pretty clear to show the information.
 
-
+```{r enwas_inv22, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 enwas_res = data.frame(x=xwas$enwas_res$estimate,
                        x_upper = xwas$enwas_res$upper,
                        x_lower = xwas$enwas_res$lower,
                        y=xwas_inv$enwas_res$estimate,
                        y_upper=xwas_inv$enwas_res$upper,
                        y_lower=xwas_inv$enwas_res$lower,
-                       diff = abs(xwas_inv$enwas_res$estimate-xwas$enwas_res$estimate),
+                       z=xwas_log$enwas_res$estimate,
+                       z_upper=xwas_log$enwas_res$upper,
+                       z_lower=xwas_log$enwas_res$lower,
+                       diff1 = abs(xwas_inv$enwas_res$estimate-xwas$enwas_res$estimate),
+                       diff2 = abs(xwas_log$enwas_res$estimate-xwas$enwas_res$estimate),
+                       diff3 = abs(xwas_log$enwas_res$estimate-xwas_inv$enwas_res$estimate),
                        term = xwas_inv$enwas_res$term
                        )
 
@@ -130,26 +173,53 @@ ggplot(aes(x,y,label = term, colour=term)) +
   geom_point(size=1.5)+
   geom_errorbar(aes(ymin = y_lower, ymax = y_upper))+
   geom_errorbarh(aes(xmin = x_lower,xmax = x_upper)) +
-  geom_text_repel(data=dplyr::top_n(enwas_res,top_n_diff,diff),aes(label=term))+
+  geom_text_repel(data=dplyr::top_n(enwas_res,top_n_diff,diff1),aes(label=term))+
   theme_minimal()+
   theme(legend.position = "none")+xlab("EnWAS") + ylab("EnWAS INT")
+```
 
+The following scatter plot remove the error bars and text labeled the top 20 most difference variables.
 
-
+Scatter plot for estimates of EnWAS  non-transformed (`EnWAS`) with inverse normal transformation (`EnWAS INT`).
+```{r enwas_inv230, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 enwas_res |>
 ggplot(aes(x,y,label = term,colour=term)) +
   geom_point(size=1.5)+
   geom_smooth(aes(x,y,colour=NULL),method = "lm", formula = y~x)+
-  geom_text_repel(data=dplyr::top_n(enwas_res,top_n_diff,diff),aes(label=term))+
+  geom_text_repel(data=dplyr::top_n(enwas_res,top_n_diff,diff1),aes(label=term))+
   theme_minimal()+
   theme(legend.position = "none")+xlab("EnWAS") + ylab("EnWAS INT")
+```
+
+Scatter plot for estimates of EnWAS  non-transformed (`EnWAS`) with log and z-transformation (`EnWAS Log`).
+
+```{r enwas_inv231, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+enwas_res |>
+ggplot(aes(x,z,label = term,colour=term)) +
+  geom_point(size=1.5)+
+  geom_smooth(aes(x,z,colour=NULL),method = "lm", formula = y~x)+
+  geom_text_repel(data=dplyr::top_n(enwas_res,top_n_diff,diff1),aes(label=term))+
+  theme_minimal()+
+  theme(legend.position = "none")+xlab("EnWAS") + ylab("EnWAS Log")
+```
+
+Scatter plot for estimates of EnWAS inverse normal transformation (`EnWAS INT`) with log and z-transformation (`EnWAS Log`).
+
+```{r enwas_inv232, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
+enwas_res |>
+ggplot(aes(y,z,label = term,colour=term)) +
+  geom_point(size=1.5)+
+  geom_smooth(aes(y,z,colour=NULL),method = "lm", formula = y~x)+
+  geom_text_repel(data=dplyr::top_n(enwas_res,top_n_diff,diff3),aes(label=term))+
+  theme_minimal()+
+  theme(legend.position = "none")+xlab("EnWAS INT") + ylab("EnWAS Log")
 
 ```
 
 
 ### 3.1 Likelihood Ratio Test: Inverse Normal Transformation to None transformd
 
-Issues
+It is still very clear to me to do the Likelihood Ratio Test because they are not nested; therefore, ANOVA LRT does not apply here. On the other hand, the vuongtest `nonnest2::vuongtest(,nested=FALSE)` produces very strange LRstat. 
 
 
 ```{r enwas_inv2, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
@@ -172,7 +242,7 @@ for (i in 1:length(terms)){
 
 lrt_mtx <- as.data.frame(lrt_mtx)
 
-lrt_mtx |> dplyr::arrange(P_value) |>
+lrt_mtx |> dplyr::arrange(P_value) |> head(10) |>
   kbl() |> kable_classic_2(full_width = F)
 
 ```
@@ -246,7 +316,7 @@ xwas_inv$enwas_res |> filter(lower*upper > 0) |>
 
 ```{r cv, echo=TRUE,warning=F, out.width = '90%',dpi = 200}
 
-cross_val <- function(model_str,data_set,top_exrs,inv=FALSE,label="DIASTOLIC"){
+cross_val <- function(model_str,data_set,top_exrs,trans=FALSE,label="DIASTOLIC"){
   
   # years <- levels(data_set$years)
   years <- c("2003-2004","2005-2006","2007-2008","2009-2010")
@@ -258,10 +328,13 @@ cross_val <- function(model_str,data_set,top_exrs,inv=FALSE,label="DIASTOLIC"){
   for (i in 1:len_year){
       cv_train <- data_set[data_set$years != years[i], ]
       cv_test <- data_set[data_set$years == years[i], ]
-      mse <- enwas_cv(model_str,top_exrs,train_set = cv_train,
-                      test_set = cv_test,lab_col = label,
-                      inv_norm =inv)
-      mse_mtx[,i] <- mse
+      if (nrow(cv_test)>1){
+        mse <- enwas_cv(model_str,top_exrs,train_set = cv_train,
+                        test_set = cv_test,lab_col = label,
+                        inv_norm =trans)
+        mse_mtx[,i] <- mse 
+      }
+
   }
  mse_df <- as.data.frame(reshape2::melt(mse_mtx))
  colnames(mse_df) <- c("Exposures","Years","MSE")
@@ -280,7 +353,7 @@ top_n_exprs$term
 
 
 
-exposures <- jsonlite::fromJSON("C:/projects/EnWAS/data/phenotypes.json")
+exposures <- jsonlite::fromJSON("./phenotypes.json")
 cv_df <- data.frame(matrix(ncol = 3, nrow = 0))
 for(tb_name in names(exposures)){
   exprs <- exposures[tb_name][[1]]
@@ -288,7 +361,6 @@ for(tb_name in names(exposures)){
   if(length(exprs)>0){
     expr_data <- load_exprs(exprs,tb_name,nhanes_db)
     data <- merge(base_df,expr_data$data,by="SEQN")
-    # print(head(data))
     cv_tmp <- cross_val(ns_str,data,exprs)
     cv_df <- rbind(cv_df,cv_tmp)
   }
@@ -296,12 +368,11 @@ for(tb_name in names(exposures)){
 }
 
 
-# cv_df |>
-#   ggplot(aes(x=Exposures,y=MSE,fill=Exposures )) +
-#   geom_boxplot()+
-#   scale_x_discrete(guide = guide_axis(angle = 45))+
-#   scale_y_continuous(limits = quantile(cv_df$MSE, c(0.0, 0.9)))+
-#   theme_minimal()+theme(legend.position="none")
+cv_df |>
+  ggplot(aes(x=Exposures,y=MSE,fill=Exposures )) +
+  geom_boxplot()+
+  scale_x_discrete(guide = guide_axis(angle = 45))+
+  theme_minimal()+theme(legend.position="none")
 
 
 dbDisconnect(nhanes_db)

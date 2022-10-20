@@ -5,7 +5,7 @@
 #' @param base_model a string of base model
 #' @param exposure_vars the phenotype list
 #' @param data_set data set
-#' @param inv_norm
+#' @param trans "log" :log and scale transformation or inv: inverse normal transformation
 #'
 #' @return the model list and EnWAS result
 #' @export
@@ -16,7 +16,7 @@ enwas <-
   function(base_model,
            exposure_vars,
            data_set,
-           inv_norm = FALSE) {
+           trans = "none") {
 
     num_var <- length(exposure_vars)
 
@@ -48,9 +48,14 @@ enwas <-
       # We need to remove the NAs for current phenotype before invNorm(),
       # otherwise it fill NA, which may undesired values.
       ph_dat <- data_set[!is.na(data_set[,exposure]),]
-      if (inv_norm & exposure %in% num_cols) {
+      if (trans=="inv" & exposure %in% num_cols) {
         ph_dat[,exposure] <- invNorm(ph_dat[,exposure])
       }
+
+      if (trans=="log" & exposure %in% num_cols) {
+        ph_dat[,exposure] <- scale(log(ph_dat[,exposure]+1e-5))
+      }
+
       base_m <- glm(formula = as.formula(base_model),ph_dat,
                     family = gaussian,na.action = na.omit)
 
@@ -85,7 +90,7 @@ enwas <-
       association_list[association_list$term %in% exposure_vars, ]
 
 
-    if(inv_norm==FALSE){
+    if(trans =="none"){
       sd_x_list <-  sapply(data_set, function(x)
         sd(as.numeric(x),na.rm = TRUE))
       for (var in exposure_vars) {
