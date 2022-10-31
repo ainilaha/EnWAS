@@ -56,12 +56,10 @@ enwas <-
         ph_dat[,exposure] <- scale(log(ph_dat[,exposure]+1e-5))
       }
 
-      base_m <- glm(formula = as.formula(base_model),ph_dat,
-                    family = gaussian,na.action = na.omit)
+      base_m <- lm(formula = as.formula(base_model),ph_dat)
 
       model <- build_formula(base_model, exposure)
-      mod <- glm(model, ph_dat,
-                 family = gaussian,na.action = na.omit)
+      mod <- lm(model, ph_dat)
       model_list[[i]] <- mod
       mod_df <- broom::tidy(mod)
       mod_df$count <- nrow(ph_dat)
@@ -71,8 +69,8 @@ enwas <-
       qc_mtx[i,2:4] <- round(unlist(broom::glance(mod))[c('logLik','AIC','BIC')],3)
       #-----------------ANOVA LRT---------------------------
       ano_res <- anova(base_m,mod,test="LRT")
-      qc_mtx[i,5] <- round(unlist(ano_res[2,"Deviance"]),3)
-      qc_mtx[i,6] <- round(ano_res$"Deviance"[2]/ano_res$"Resid. Dev"[2]*100,3)
+      qc_mtx[i,5] <- round(unlist(ano_res[2,"Sum of Sq"]),3)
+      qc_mtx[i,6] <- round(ano_res$"Sum of Sq"[2]/ano_res$"RSS"[2]*100,3)
       qc_mtx[i,7] <- round(unlist(ano_res[2,"Pr(>Chi)"]),4)
       #-----------------vuongtest---------------------------
       vong <- nonnest2::vuongtest(base_m,mod)
@@ -163,7 +161,7 @@ enwas_cv <-
 
     for (i in 1:num_var) {
       model_str <- build_formula(base_model, exposure_vars[i])
-      model <- glm(model_str, train_set,family = gaussian(),na.action = na.omit)
+      model <- lm(model_str, train_set,na.action = na.omit)
       pred_vals <- predict(model, test_set)
       mse[i] <- mean((pred_vals - test_set[,lab_col]) ^ 2,na.rm = TRUE)
     }
@@ -199,14 +197,17 @@ build_formula <- function(base_model,exposure_var,inv=FALSE) {
 
 #' Inverse Normal Transformation
 #'
-#' @param x
+#' @param x a numeric, complex, character or logical vector.
+#' @param na.last for controlling the treatment of NAs. If TRUE, missing values in the data are put last; if FALSE, they are put first; if NA, they are removed; if "keep" they are kept with rank NA.
+#' @param ties.method a character string specifying how ties are treated, it could be "average", "first", "last", "random", "max", "min"
 #'
 #' @return transformed data
 #' @export
 #'
 #' @examples invNorm(nhanes$BMXWAIST)
-invNorm <- function(x) {
-  qnorm((rank(x) - 3/8)/(length(x) +1 - 6/8))
+invNorm <- function(x,na.last = "keep", ties.method="average") {
+  qnorm((rank(x,na.last = na.last, ties.method=ties.method)
+         - 3/8)/(length(x) +1 - 6/8))
   }
 
 

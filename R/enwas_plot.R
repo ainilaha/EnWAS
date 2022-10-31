@@ -128,7 +128,7 @@ forest_plot_mult <- function(xwas_result_list,top_n=20) {
       )
     )+
     coord_flip() +  # flip coordinates (puts labels on y axis)
-    xlab("Exposures") + ylab("Estimate (95% CI)") +
+    xlab("Exposures") +  ylab("Standardized Effect Estimate")+
     theme_bw()  # use a white background
 }
 
