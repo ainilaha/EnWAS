@@ -153,8 +153,8 @@ make_bins <- function(x, y, nbin) {
                breaks = Hmisc::cut2(x, m = nbin, levels.mean = TRUE))
   df <- df |>
     dplyr::group_by(breaks) |>
-    dplyr::summarize(mean = mean(y),
-                     std = sd(y),
+    dplyr::summarize(mean = mean(y,na.rm=T),
+                     std = sd(y,na.rm=T),
                      cnt = dplyr::n()) |> dplyr::mutate(y_min = mean - 1.96 * std /
                                                    sqrt(cnt),
                                                  y_max = mean + 1.96 * std / sqrt(cnt))
