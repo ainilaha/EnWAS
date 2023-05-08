@@ -172,26 +172,33 @@ make_bins <- function(x, y, nbin) {
 #'
 #' @param x x values
 #' @param y y values
+#' @param data data frame
 #' @param xlab x label text
 #' @param ylab y label text
 #' @param title plot title
-#' @param nbin expected data points in each bin
+#' @param nobsperbin expected number of data points in per bins
 #'
 #' @return plot results
 #' @export
 #'
-#' @examples plot_bins(nhanes$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)", y="Binned residuals", snbin=300)
-plot_bins<- function(x,y,xlab="Value",ylab="Binned y",title="linear",nbin=600){
-
-  df <- make_bins(x,y,nbin)
-  g <- ggplot(df,aes(breaks,mean)) + geom_point() +
+#' @examples demo = nhanes("DEMO_C")
+#' plot_bins(x=RIDAGEYR,y=INDFMPIR,data = demo)
+plot_bins<- function(x,y,data,xlab="Value",ylab="Binned y",title="linear",nobsperbin=600){
+  arguments <- as.list(match.call())
+  y = eval(arguments$y, data)
+  x = eval(arguments$x, data)
+  df = make_bins(x,y,nobsperbin)
+  g = ggplot(df,aes(breaks,mean)) + geom_point() +
     geom_errorbar(aes(ymin=y_min,ymax=y_max))+
     geom_smooth(aes(breaks,mean),method = "lm", formula = y ~  ns(x, df=7))+
     ylab(ylab) + xlab(xlab) + labs(title = title)
 
   g
 
+
 }
+
+
 
 
 
@@ -315,7 +322,7 @@ plot_p <- function(xwas_result_list,is_fdr=FALSE){
 #' @examples g_raw(nhanes,x="RIDAGEYR",xlab="Age (Years)")
 g_raw <- function(data,
                   x = "BMXBMI",
-                  y = "diastolic",
+                  y = "DIASTOLIC",
                   gender = "RIAGENDR",
                   xlab = "BMI (kg/m²)",
                   ylab = "Diastolic (mm Hg)",

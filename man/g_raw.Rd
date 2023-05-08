@@ -7,7 +7,7 @@
 g_raw(
   data,
   x = "BMXBMI",
-  y = "diastolic",
+  y = "DIASTOLIC",
   gender = "RIAGENDR",
   xlab = "BMI (kg/m²)",
   ylab = "Diastolic (mm Hg)",

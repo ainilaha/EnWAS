@@ -7,10 +7,11 @@
 plot_bins(
   x,
   y,
+  data,
   xlab = "Value",
   ylab = "Binned y",
   title = "linear",
-  nbin = 600
+  nobsperbin = 600
 )
 }
 \arguments{
@@ -18,13 +19,15 @@ plot_bins(
 
 \item{y}{y values}
 
+\item{data}{data frame}
+
 \item{xlab}{x label text}
 
 \item{ylab}{y label text}
 
 \item{title}{plot title}
 
-\item{nbin}{expected data points in each bin}
+\item{nobsperbin}{expected number of data points in per bins}
 }
 \value{
 plot results
@@ -33,5 +36,6 @@ plot results
 The y values are binned with respected to x values
 }
 \examples{
-plot_bins(nhanes$BMXBMI, lm_base$residuals,xlab="BMI(kg/m²)", y="Binned residuals", snbin=300)
+demo = nhanes("DEMO_C")
+plot_bins(x=RIDAGEYR,y=INDFMPIR,data = demo)
 }
